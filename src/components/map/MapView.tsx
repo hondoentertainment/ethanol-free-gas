@@ -1,0 +1,98 @@
+"use client";
+
+import "mapbox-gl/dist/mapbox-gl.css";
+import Map, { Marker, NavigationControl } from "react-map-gl/mapbox";
+import type { StationClassification, StationWithMeta } from "@/lib/types/station";
+
+const CLASSIFICATION_COLORS: Record<StationClassification, string> = {
+  car: "#2563eb",
+  boat: "#0d9488",
+  dual: "#7c3aed",
+};
+
+interface MapViewProps {
+  stations: StationWithMeta[];
+  selectedId: string | null;
+  center: { lat: number; lng: number };
+  onSelectStation: (station: StationWithMeta) => void;
+  onMoveEnd?: (center: { lat: number; lng: number }) => void;
+}
+
+export function MapView({
+  stations,
+  selectedId,
+  center,
+  onSelectStation,
+  onMoveEnd,
+}: MapViewProps) {
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  if (!token) {
+    return (
+      <div className="flex h-full items-center justify-center bg-zinc-100 p-6 text-center">
+        <div>
+          <p className="font-medium text-zinc-800">Map unavailable</p>
+          <p className="mt-1 text-sm text-zinc-600">
+            Add <code className="text-xs">NEXT_PUBLIC_MAPBOX_TOKEN</code> to
+            enable the interactive map. Stations are shown in the list below.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Map
+      mapboxAccessToken={token}
+      initialViewState={{
+        longitude: center.lng,
+        latitude: center.lat,
+        zoom: 10,
+      }}
+      onMoveEnd={(event) =>
+        onMoveEnd?.({
+          lat: event.viewState.latitude,
+          lng: event.viewState.longitude,
+        })
+      }
+      style={{ width: "100%", height: "100%" }}
+      mapStyle="mapbox://styles/mapbox/streets-v12"
+      attributionControl={false}
+    >
+      <NavigationControl position="bottom-right" />
+      {stations.map((station) => {
+        const isSelected = station.id === selectedId;
+        const color = CLASSIFICATION_COLORS[station.classification];
+
+        return (
+          <Marker
+            key={station.id}
+            longitude={station.lng}
+            latitude={station.lat}
+            anchor="bottom"
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              onSelectStation(station);
+            }}
+          >
+            <button
+              type="button"
+              aria-label={station.name}
+              className="transition-transform"
+              style={{
+                transform: isSelected ? "scale(1.2)" : "scale(1)",
+              }}
+            >
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow-md"
+                style={{ backgroundColor: color }}
+              >
+                E0
+              </span>
+            </button>
+          </Marker>
+        );
+      })}
+    </Map>
+  );
+}
