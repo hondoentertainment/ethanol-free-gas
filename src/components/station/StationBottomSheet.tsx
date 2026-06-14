@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import type { StationWithMeta, VerificationStatus } from "@/lib/types/station";
+import type { StationWithMeta } from "@/lib/types/station";
 import { ClassificationBadge } from "./ClassificationBadge";
 import { DirectionsLinks } from "./DirectionsLinks";
 import { VerificationBadge } from "./VerificationBadge";
+import { VerificationForm } from "./VerificationForm";
 
 export function StationBottomSheet({
   station,
@@ -15,39 +15,7 @@ export function StationBottomSheet({
   onClose: () => void;
   onVerified?: () => void;
 }) {
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
   if (!station) return null;
-
-  async function submitVerification(status: VerificationStatus) {
-    if (!station) return;
-
-    setSubmitting(true);
-    setMessage(null);
-
-    try {
-      const response = await fetch("/api/verifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ station_id: station.id, status }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error ?? "Failed to submit verification");
-      }
-
-      setMessage("Thanks — your update was recorded.");
-      onVerified?.();
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Something went wrong"
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 mx-auto max-w-lg px-3 pb-3">
@@ -117,40 +85,7 @@ export function StationBottomSheet({
         </div>
 
         <div className="mt-4">
-          <p className="mb-2 text-sm font-medium text-zinc-700">
-            Report availability
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => submitVerification("available")}
-              className="rounded-full bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              Fuel available
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => submitVerification("unavailable")}
-              className="rounded-full bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
-            >
-              Out of E0
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => submitVerification("incorrect")}
-              className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-            >
-              Wrong info
-            </button>
-          </div>
-          {message && (
-            <p className="mt-2 text-sm text-zinc-600" role="status">
-              {message}
-            </p>
-          )}
+          <VerificationForm stationId={station.id} onVerified={onVerified} />
         </div>
       </div>
     </div>

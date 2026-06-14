@@ -14,6 +14,7 @@ interface MapViewProps {
   stations: StationWithMeta[];
   selectedId: string | null;
   center: { lat: number; lng: number };
+  searchCenter?: { lat: number; lng: number };
   onSelectStation: (station: StationWithMeta) => void;
   onMoveEnd?: (center: { lat: number; lng: number }) => void;
 }
@@ -22,6 +23,7 @@ export function MapView({
   stations,
   selectedId,
   center,
+  searchCenter,
   onSelectStation,
   onMoveEnd,
 }: MapViewProps) {
@@ -41,12 +43,15 @@ export function MapView({
     );
   }
 
+  const flyTarget = searchCenter ?? center;
+
   return (
     <Map
+      key={`${flyTarget.lat.toFixed(4)}-${flyTarget.lng.toFixed(4)}`}
       mapboxAccessToken={token}
       initialViewState={{
-        longitude: center.lng,
-        latitude: center.lat,
+        longitude: flyTarget.lng,
+        latitude: flyTarget.lat,
         zoom: 10,
       }}
       onMoveEnd={(event) =>

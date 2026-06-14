@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ethanol-Free Fuel Finder
 
-## Getting Started
+Mobile-first map for locating ethanol-free (E0) gasoline stations across the US and Canada. Built with Next.js 16, Supabase, and Mapbox.
 
-First, run the development server:
+## Features
+
+- Interactive map with car / boat / dual station classification
+- Search by city, ZIP, or address (Mapbox geocoding autocomplete)
+- “Search this area” when panning the map
+- Station detail pages with directions (Google Maps, Apple Maps, Waze)
+- Crowdsourced fuel availability verification (requires sign-in)
+- Email magic link and Google OAuth via Supabase Auth
+
+## Quick start
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment
+
+Copy `.env.example` to `.env.local` and fill in:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon key |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Yes* | Mapbox public token |
+| `SUPABASE_SERVICE_ROLE_KEY` | No | Admin seeding only |
+
+\* Without Mapbox, the app falls back to a list-only view with demo data.
+
+### 3. Set up Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Run `supabase/migrations/001_initial_schema.sql` in the SQL editor
+3. Run `supabase/seed.sql` for sample stations
+4. Enable **Email** and **Google** providers under Authentication → Providers
+5. Add redirect URLs:
+   - `http://localhost:3000/auth/callback`
+   - `https://your-domain.vercel.app/auth/callback`
+
+### 4. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Without Supabase configured, the app runs in **demo mode** with mock stations.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run unit tests |
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy to Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Push the repo to GitHub
+2. Import the project in [Vercel](https://vercel.com/new)
+3. Add the same environment variables from `.env.local`
+4. Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project structure
 
-## Deploy on Vercel
+```
+docs/PRD.md              Product requirements
+docs/TECHNICAL_SPEC.md   API contracts, schema, sprint plan
+src/app/                 Next.js App Router pages and API routes
+src/components/          Map, search, station UI
+src/lib/                 Supabase clients, types, utilities
+supabase/                SQL migrations and seed data
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Product Requirements](docs/PRD.md)
+- [Technical Specification](docs/TECHNICAL_SPEC.md)

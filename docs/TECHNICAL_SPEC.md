@@ -236,7 +236,9 @@ app/station/[id]/page.tsx
 └── components/station/VerificationForm.tsx (client)
 
 app/auth/login/page.tsx
-└── Email + OAuth buttons (Supabase Auth UI pattern)
+└── LoginForm (email + Google OAuth)
+
+src/proxy.ts (Supabase session refresh)
 ```
 
 ---
@@ -266,16 +268,19 @@ app/auth/login/page.tsx
 
 ### Sprint 2 — Auth + Verification
 
-- Supabase Auth (email, Google)
-- Protected verification POST
-- Login page + callback route
-- Middleware session refresh
+- [x] Supabase Auth (email, Google)
+- [x] Protected verification POST
+- [x] Login page + callback route
+- [x] Proxy session refresh (migrated from middleware)
+- [x] Auth-aware header with sign out
+- [x] VerificationForm on station detail + bottom sheet
 
 ### Sprint 3 — Search Polish
 
-- Mapbox Geocoding for address search
-- ZIP/city autocomplete
-- Classification filters on map
+- [x] Mapbox Geocoding for address search (`GET /api/geocode`)
+- [x] ZIP/city autocomplete in SearchBar
+- [x] Classification filters on map
+- [x] “Search this area” on map pan
 
 ### Sprint 4 — Route Search (Phase 2 MVP)
 
@@ -304,6 +309,7 @@ docs/PRD.md
 docs/TECHNICAL_SPEC.md
 supabase/migrations/001_initial_schema.sql
 supabase/seed.sql
+src/app/api/geocode/route.ts
 src/app/api/stations/route.ts
 src/app/api/stations/[id]/route.ts
 src/app/api/verifications/route.ts

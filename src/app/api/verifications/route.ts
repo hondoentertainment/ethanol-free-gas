@@ -45,6 +45,13 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    return NextResponse.json(
+      { error: "Sign in required to submit verifications" },
+      { status: 401 }
+    );
+  }
+
   const { data: station, error: stationError } = await supabase
     .from("stations")
     .select("id")
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
       station_id: stationId,
       status,
       notes,
-      user_id: user?.id ?? null,
+      user_id: user.id,
     })
     .select("*")
     .single();

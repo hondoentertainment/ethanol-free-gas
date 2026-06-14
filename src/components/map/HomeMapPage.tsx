@@ -4,14 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { MapView } from "@/components/map/MapView";
 import {
   SearchBar,
+  type GeocodeSuggestion,
   type SearchFilters,
 } from "@/components/search/SearchBar";
 import { StationBottomSheet } from "@/components/station/StationBottomSheet";
 import { StationCard } from "@/components/station/StationCard";
 import { MOCK_STATIONS } from "@/lib/data/stations";
 import type { StationWithMeta } from "@/lib/types/station";
+import { haversineMiles } from "@/lib/utils/geo";
 
 const DEFAULT_CENTER = { lat: 38.9784, lng: -76.4922 };
+const SEARCH_AREA_THRESHOLD_MILES = 0.75;
 
 const EMPTY_FILTERS: SearchFilters = {
   q: "",
@@ -27,19 +30,31 @@ export function HomeMapPage() {
   const [selectedStation, setSelectedStation] = useState<StationWithMeta | null>(
     null
   );
-  const [center, setCenter] = useState(DEFAULT_CENTER);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  const [searchCenter, setSearchCenter] = useState(DEFAULT_CENTER);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingMockData, setUsingMockData] = useState(true);
 
+  const mapMovedFromSearch =
+    haversineMiles(
+      mapCenter.lat,
+      mapCenter.lng,
+      searchCenter.lat,
+      searchCenter.lng
+    ) > SEARCH_AREA_THRESHOLD_MILES;
+
   const fetchStations = useCallback(
-    async (searchCenter = center, searchFilters = filters) => {
+    async (
+      nextSearchCenter = searchCenter,
+      searchFilters = filters
+    ) => {
       setLoading(true);
       setError(null);
 
       const params = new URLSearchParams({
-        lat: String(searchCenter.lat),
-        lng: String(searchCenter.lng),
+        lat: String(nextSearchCenter.lat),
+        lng: String(nextSearchCenter.lng),
         radius: "50",
       });
 
@@ -75,6 +90,9 @@ export function HomeMapPage() {
           setStations(MOCK_STATIONS);
           setUsingMockData(true);
         }
+
+        setSearchCenter(nextSearchCenter);
+        setMapCenter(nextSearchCenter);
       } catch (fetchError) {
         setStations(MOCK_STATIONS);
         setUsingMockData(true);
@@ -87,7 +105,7 @@ export function HomeMapPage() {
         setLoading(false);
       }
     },
-    [center, filters]
+    [filters, searchCenter]
   );
 
   useEffect(() => {
@@ -100,7 +118,6 @@ export function HomeMapPage() {
     if (!navigator.geolocation) {
       setError("Geolocation is not supported in this browser");
       return;
-
     }
 
     navigator.geolocation.getCurrentPosition(
@@ -109,11 +126,27 @@ export function HomeMapPage() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        setCenter(nextCenter);
+        setMapCenter(nextCenter);
         fetchStations(nextCenter, filters);
       },
       () => setError("Unable to access your location")
     );
+  }
+
+  function handleSelectLocation(suggestion: GeocodeSuggestion) {
+    const nextCenter = { lat: suggestion.lat, lng: suggestion.lng };
+    setMapCenter(nextCenter);
+    fetchStations(nextCenter, {
+      ...filters,
+      q: suggestion.label,
+      city: suggestion.city ?? filters.city,
+      state: suggestion.state ?? filters.state,
+      zip: suggestion.zip ?? filters.zip,
+    });
+  }
+
+  function handleSearchThisArea() {
+    fetchStations(mapCenter, filters);
   }
 
   return (
@@ -121,8 +154,9 @@ export function HomeMapPage() {
       <SearchBar
         filters={filters}
         onChange={setFilters}
-        onSearch={() => fetchStations(center, filters)}
+        onSearch={() => fetchStations(mapCenter, filters)}
         onUseLocation={handleUseLocation}
+        onSelectLocation={handleSelectLocation}
         loading={loading}
       />
 
@@ -131,10 +165,24 @@ export function HomeMapPage() {
           <MapView
             stations={stations}
             selectedId={selectedStation?.id ?? null}
-            center={center}
+            center={mapCenter}
+            searchCenter={searchCenter}
             onSelectStation={setSelectedStation}
-            onMoveEnd={setCenter}
+            onMoveEnd={setMapCenter}
           />
+
+          {mapMovedFromSearch && (
+            <div className="absolute inset-x-0 top-28 z-10 flex justify-center px-3">
+              <button
+                type="button"
+                onClick={handleSearchThisArea}
+                disabled={loading}
+                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Search this area
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-zinc-200 bg-zinc-50 p-3">
@@ -149,7 +197,9 @@ export function HomeMapPage() {
             )}
           </div>
           {error && (
-            <p className="mb-2 text-sm text-amber-700" role="alert">{error}</p>
+            <p className="mb-2 text-sm text-amber-700" role="alert">
+              {error}
+            </p>
           )}
           <div className="grid gap-2 max-h-[32vh] overflow-y-auto">
             {stations.map((station) => (
@@ -167,7 +217,7 @@ export function HomeMapPage() {
       <StationBottomSheet
         station={selectedStation}
         onClose={() => setSelectedStation(null)}
-        onVerified={() => fetchStations(center, filters)}
+        onVerified={() => fetchStations(searchCenter, filters)}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ClassificationBadge } from "@/components/station/ClassificationBadge";
 import { DirectionsLinks } from "@/components/station/DirectionsLinks";
 import { VerificationBadge } from "@/components/station/VerificationBadge";
+import { VerificationForm } from "@/components/station/VerificationForm";
 import { enrichStation, MOCK_STATIONS } from "@/lib/data/stations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -121,6 +122,10 @@ export default async function StationPage({
             lng={station.lng}
             label={station.name}
           />
+        </div>
+
+        <div className="mt-6">
+          <VerificationForm stationId={station.id} />
         </div>
 
         {verifications.length > 0 && (

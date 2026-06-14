@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StationClassification } from "@/lib/types/station";
 
 export interface SearchFilters {
@@ -11,11 +11,22 @@ export interface SearchFilters {
   classification: StationClassification | "";
 }
 
+export interface GeocodeSuggestion {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  city?: string;
+  state?: string;
+  zip?: string;
+}
+
 interface SearchBarProps {
   filters: SearchFilters;
   onChange: (filters: SearchFilters) => void;
   onSearch: () => void;
   onUseLocation: () => void;
+  onSelectLocation?: (suggestion: GeocodeSuggestion) => void;
   loading?: boolean;
 }
 
@@ -24,31 +35,141 @@ export function SearchBar({
   onChange,
   onSearch,
   onUseLocation,
+  onSelectLocation,
   loading,
 }: SearchBarProps) {
   const [expanded, setExpanded] = useState(false);
+  const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    setGeocoding(true);
+    try {
+      const response = await fetch(
+        `/api/geocode?q=${encodeURIComponent(query.trim())}`
+      );
+      const data = await response.json();
+      setSuggestions(data.suggestions ?? []);
+      setSuggestionsOpen((data.suggestions ?? []).length > 0);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setGeocoding(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (filters.q.trim().length >= 2) {
+        fetchSuggestions(filters.q);
+      } else {
+        setSuggestions([]);
+        setSuggestionsOpen(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [filters.q, fetchSuggestions]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setSuggestionsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function selectSuggestion(suggestion: GeocodeSuggestion) {
+    const nextFilters: SearchFilters = {
+      ...filters,
+      q: suggestion.label,
+      city: suggestion.city ?? filters.city,
+      state: suggestion.state ?? filters.state,
+      zip: suggestion.zip ?? filters.zip,
+    };
+    onChange(nextFilters);
+    setSuggestionsOpen(false);
+    onSelectLocation?.(suggestion);
+  }
 
   return (
-    <div className="absolute inset-x-0 top-0 z-20 mx-auto max-w-lg px-3 pt-3">
+    <div
+      ref={containerRef}
+      className="absolute inset-x-0 top-0 z-20 mx-auto max-w-lg px-3 pt-3"
+    >
       <div className="rounded-2xl border border-zinc-200 bg-white/95 p-3 shadow-lg shadow-zinc-900/5 backdrop-blur-sm">
-        <div className="flex gap-2">
-          <input
-            type="search"
-            value={filters.q}
-            onChange={(e) => onChange({ ...filters, q: e.target.value })}
-            placeholder="Search name, address, or city"
-            className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
-            onKeyDown={(e) => e.key === "Enter" && onSearch()}
-          />
+        <div className="relative flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <input
+              type="search"
+              value={filters.q}
+              onChange={(e) => onChange({ ...filters, q: e.target.value })}
+              onFocus={() =>
+                suggestions.length > 0 && setSuggestionsOpen(true)
+              }
+              placeholder="Search city, ZIP, or address"
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setSuggestionsOpen(false);
+                  onSearch();
+                }
+                if (e.key === "Escape") {
+                  setSuggestionsOpen(false);
+                }
+              }}
+              role="combobox"
+              aria-expanded={suggestionsOpen}
+              aria-autocomplete="list"
+            />
+            {suggestionsOpen && suggestions.length > 0 && (
+              <ul
+                className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-zinc-200 bg-white py-1 shadow-lg"
+                role="listbox"
+              >
+                {suggestions.map((suggestion) => (
+                  <li key={suggestion.id} role="option">
+                    <button
+                      type="button"
+                      onClick={() => selectSuggestion(suggestion)}
+                      className="w-full px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
+                    >
+                      {suggestion.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             type="button"
-            onClick={onSearch}
+            onClick={() => {
+              setSuggestionsOpen(false);
+              onSearch();
+            }}
             disabled={loading}
             className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
           >
             {loading ? "..." : "Search"}
           </button>
         </div>
+
+        {geocoding && filters.q.length >= 2 && (
+          <p className="mt-1 text-xs text-zinc-500">Finding locations…</p>
+        )}
 
         <div className="mt-2 flex flex-wrap gap-2">
           <button
