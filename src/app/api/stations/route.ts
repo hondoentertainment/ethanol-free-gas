@@ -2,6 +2,7 @@ import {
   parseClassificationFromRequest,
   queryStations,
 } from "@/lib/data/query-stations";
+import { isPureGasDataAvailable } from "@/lib/data/pure-gas";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import type { StationClassification } from "@/lib/types/station";
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   );
   const showAll = searchParams.get("all") === "true";
   const limit = showAll
-    ? Math.min(Math.max(Number(searchParams.get("limit") ?? 1000), 1), 1000)
+    ? Math.min(Math.max(Number(searchParams.get("limit") ?? 20000), 1), 20000)
     : Math.min(Math.max(Number(searchParams.get("limit") ?? 50), 1), 200);
 
   if (
@@ -51,7 +52,15 @@ export async function GET(request: NextRequest) {
       all: showAll,
     });
 
-    return NextResponse.json({ stations, count: stations.length });
+    return NextResponse.json({
+      stations,
+      count: stations.length,
+      source: isSupabaseConfigured()
+        ? "supabase"
+        : isPureGasDataAvailable()
+          ? "pure-gas"
+          : "demo",
+    });
   } catch (error) {
     return NextResponse.json(
       {

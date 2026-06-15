@@ -13,6 +13,7 @@ import {
 } from "@/components/search/SearchBar";
 import { StationBottomSheet } from "@/components/station/StationBottomSheet";
 import { ALL_DEMO_STATIONS } from "@/lib/data/seed-stations";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { cacheStations, getCachedStations } from "@/lib/offline/station-cache";
 import type { StationWithMeta } from "@/lib/types/station";
 import { haversineMiles } from "@/lib/utils/geo";
@@ -97,7 +98,7 @@ export function HomeMapPage() {
   >(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [usingMockData, setUsingMockData] = useState(true);
+  const [dataSource, setDataSource] = useState<"demo" | "pure-gas" | "supabase">("demo");
   const [routeMode, setRouteMode] = useState(false);
   const [nearbyOnly, setNearbyOnly] = useState(false);
   const [listOpen, setListOpen] = useState(false);
@@ -118,7 +119,7 @@ export function HomeMapPage() {
       const cached = getCachedStations();
       if (cached?.stations?.length) {
         setAllStations(cached.stations as StationWithMeta[]);
-        setUsingMockData(false);
+        setDataSource("demo");
         setError("Offline — showing cached stations");
       }
       setLoading(false);
@@ -130,7 +131,7 @@ export function HomeMapPage() {
 
     const params = new URLSearchParams({
       all: "true",
-      limit: "1000",
+      limit: "20000",
     });
     if (location) {
       params.set("lat", String(location.lat));
@@ -148,7 +149,13 @@ export function HomeMapPage() {
       const results = data.stations as StationWithMeta[];
       if (results.length > 0) {
         setAllStations(results);
-        setUsingMockData(false);
+        setDataSource(
+          data.source === "pure-gas" || data.source === "supabase"
+            ? data.source
+            : isSupabaseConfigured()
+              ? "supabase"
+              : "pure-gas"
+        );
         cacheStations({
           stations: results,
           cachedAt: Date.now(),
@@ -156,18 +163,18 @@ export function HomeMapPage() {
         });
       } else {
         setAllStations(ALL_DEMO_STATIONS);
-        setUsingMockData(true);
+        setDataSource("demo");
       }
       setFitMap(true);
     } catch (fetchError) {
       const cached = getCachedStations();
       if (cached?.stations?.length) {
         setAllStations(cached.stations as StationWithMeta[]);
-        setUsingMockData(false);
+        setDataSource("demo");
         setError("Network error — showing cached stations");
       } else {
         setAllStations(ALL_DEMO_STATIONS);
-        setUsingMockData(true);
+        setDataSource("demo");
         setError(
           fetchError instanceof Error
             ? fetchError.message
@@ -248,7 +255,7 @@ export function HomeMapPage() {
     setRoutePolyline(route);
     setRouteMode(true);
     setNearbyOnly(false);
-    setUsingMockData(false);
+    setDataSource("supabase");
     setFitMap(true);
     setFlyTo(null);
     setListOpen(false);
@@ -353,9 +360,23 @@ export function HomeMapPage() {
         </button>
       </div>
 
-      {usingMockData && (
+      {dataSource === "demo" && (
         <div className="absolute left-3 top-[11.5rem] z-10 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 shadow-sm">
           Demo data — {ALL_DEMO_STATIONS.length} stations
+        </div>
+      )}
+
+      {dataSource === "pure-gas" && (
+        <div className="absolute left-3 top-[11.5rem] z-10 max-w-xs rounded-xl bg-white/95 px-3 py-1.5 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+          {allStations.length.toLocaleString()} stations from{" "}
+          <a
+            href="https://www.pure-gas.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-sky-700 hover:text-sky-800"
+          >
+            pure-gas.org
+          </a>
         </div>
       )}
 

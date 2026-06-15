@@ -2,6 +2,10 @@ import {
   enrichStation,
   parseClassification,
 } from "@/lib/data/stations";
+import {
+  getAllPureGasStations,
+  isPureGasDataAvailable,
+} from "@/lib/data/pure-gas";
 import { ALL_DEMO_STATIONS } from "@/lib/data/seed-stations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -34,7 +38,23 @@ export interface StationQueryParams {
   all?: boolean;
 }
 
-function filterMockStations(params: StationQueryParams): StationWithMeta[] {
+function getLocalStationPool(center?: { lat: number; lng: number }): StationWithMeta[] {
+  if (isPureGasDataAvailable()) {
+    return getAllPureGasStations(center);
+  }
+  if (!center) return [...ALL_DEMO_STATIONS];
+  return ALL_DEMO_STATIONS.map((station) => ({
+    ...station,
+    distance_miles: haversineMiles(
+      center.lat,
+      center.lng,
+      station.lat,
+      station.lng
+    ),
+  }));
+}
+
+function filterLocalStations(params: StationQueryParams): StationWithMeta[] {
   const q = params.q?.trim().toLowerCase();
   const zip = params.zip?.trim();
   const city = params.city?.trim().toLowerCase();
@@ -46,7 +66,7 @@ function filterMockStations(params: StationQueryParams): StationWithMeta[] {
       ? { lat: params.lat, lng: params.lng }
       : undefined;
 
-  let results = [...ALL_DEMO_STATIONS];
+  let results = getLocalStationPool(center);
 
   if (classification) {
     results = results.filter((s) => s.classification === classification);
@@ -103,8 +123,8 @@ export async function queryStations(
 ): Promise<StationWithMeta[]> {
   const radius = Math.min(Math.max(params.radius ?? 25, 1), 100);
   const limit = Math.min(
-    Math.max(params.limit ?? params.all ? 1000 : 50, 1),
-    1000
+    Math.max(params.limit ?? (params.all ? 20000 : 50), 1),
+    20000
   );
   const center =
     params.lat != null && params.lng != null
@@ -112,7 +132,7 @@ export async function queryStations(
       : undefined;
 
   if (!isSupabaseConfigured()) {
-    return filterMockStations({ ...params, radius }).slice(0, limit);
+    return filterLocalStations({ ...params, radius }).slice(0, limit);
   }
 
   const supabase = await createClient();

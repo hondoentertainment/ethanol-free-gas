@@ -56,3 +56,15 @@ The app caches the last station search in `localStorage` and shows cached data w
 - [ ] Add station at `/station/add`
 - [ ] Route search finds stations along a trip
 - [ ] `/api/v1/stations` returns data with API key
+
+## 7. Import from pure-gas.org
+
+The app can load ~17,000+ ethanol-free stations from [pure-gas.org](https://www.pure-gas.org/) via their public GraphQL API.
+
+```bash
+npm run import:pure-gas
+```
+
+This writes `data/pure-gas-stations.json`. When Supabase is not configured, the API serves this dataset automatically. Re-run periodically to refresh listings.
+
+**Attribution:** Station data is sourced from pure-gas.org and is displayed with a credit link on the map.
