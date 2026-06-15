@@ -126,6 +126,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const { data: nearby } = await supabase.rpc("find_nearby_station", {
+    p_lat: lat,
+    p_lng: lng,
+    p_miles: 0.15,
+  });
+
+  const duplicate = (nearby as { id: string; source: string | null }[] | null)?.find(
+    (s) => s.source === "pure-gas.org"
+  );
+  if (duplicate) {
+    return NextResponse.json(
+      {
+        error: "A station already exists at this location (imported listing). Verify it instead of adding a duplicate.",
+        existing_station_id: duplicate.id,
+      },
+      { status: 409 }
+    );
+  }
+
   const { data: station, error } = await supabase
     .from("stations")
     .insert({

@@ -7,7 +7,9 @@ import { ClassificationBadge } from "@/components/station/ClassificationBadge";
 import { DirectionsLinks } from "@/components/station/DirectionsLinks";
 import { PremiumBadge } from "@/components/station/PremiumBadge";
 import { PhotoGallery, PhotoUpload } from "@/components/station/StationPhotos";
+import { StationRatings } from "@/components/station/StationRatings";
 import { VerificationBadge } from "@/components/station/VerificationBadge";
+import { ShareStationButton } from "@/components/station/ShareStationButton";
 import { VerificationForm } from "@/components/station/VerificationForm";
 import { MOCK_STATIONS } from "@/lib/data/stations";
 import type { StationWithMeta, Verification } from "@/lib/types/station";
@@ -81,7 +83,10 @@ export function StationDetailClient({ id }: { id: string }) {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <ClassificationBadge classification={station.classification} />
-          <VerificationBadge label={station.verification_label} />
+          <VerificationBadge
+            label={station.verification_label}
+            stale={station.verification_stale}
+          />
           <PremiumBadge
             isPremium={station.is_premium}
             isSponsored={station.is_sponsored}
@@ -117,13 +122,13 @@ export function StationDetailClient({ id }: { id: string }) {
           )}
         </dl>
 
-        <div className="mt-6">
-          <p className="mb-2 text-sm font-medium text-zinc-700">Directions</p>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
           <DirectionsLinks
             lat={station.lat}
             lng={station.lng}
             label={station.name}
           />
+          <ShareStationButton stationId={station.id} stationName={station.name} />
         </div>
 
         <PhotoGallery photos={photos} />
@@ -132,6 +137,8 @@ export function StationDetailClient({ id }: { id: string }) {
         <div className="mt-6">
           <VerificationForm stationId={station.id} onVerified={loadStation} />
         </div>
+
+        <StationRatings stationId={station.id} />
 
         {verifications.length > 0 && (
           <div className="mt-8">

@@ -7,6 +7,7 @@ import type {
 } from "@/lib/types/station";
 import { haversineMiles } from "@/lib/utils/geo";
 import { getVerificationLabel } from "@/lib/utils/verification";
+import { isVerificationStale } from "@/lib/utils/verification-stale";
 
 type RawStation = Station;
 
@@ -47,6 +48,7 @@ export function enrichStation(
           }
         : null
     ),
+    verification_stale: isVerificationStale(lastVerification),
   };
 
   if (center) {

@@ -17,16 +17,18 @@ export function getVerificationLabel(
   return "unverified";
 }
 
-export const VERIFICATION_LABEL_TEXT: Record<VerificationLabel, string> = {
+export const VERIFICATION_LABEL_TEXT: Record<VerificationLabel | "stale", string> = {
   verified_today: "Verified today",
   verified_this_week: "Verified this week",
   verified_this_month: "Verified this month",
   unverified: "Unverified",
+  stale: "Needs verification",
 };
 
-export const VERIFICATION_LABEL_STYLES: Record<VerificationLabel, string> = {
+export const VERIFICATION_LABEL_STYLES: Record<VerificationLabel | "stale", string> = {
   verified_today: "bg-emerald-100 text-emerald-800 ring-emerald-600/20",
   verified_this_week: "bg-sky-100 text-sky-800 ring-sky-600/20",
   verified_this_month: "bg-amber-100 text-amber-800 ring-amber-600/20",
   unverified: "bg-zinc-100 text-zinc-600 ring-zinc-500/20",
+  stale: "bg-orange-100 text-orange-800 ring-orange-600/20",
 };

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useUser } from "@/hooks/useUser";
 import type { AlertType } from "@/lib/types/alerts";
 
@@ -15,6 +16,14 @@ interface Subscription {
 
 export function FuelAlertsPanel() {
   const { user, loading: authLoading } = useUser();
+  const {
+    pushAvailable,
+    pushEnabled,
+    pushLoading,
+    pushError,
+    subscribe,
+    unsubscribe,
+  } = usePushNotifications();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [radius, setRadius] = useState(25);
   const [types, setTypes] = useState<Set<AlertType>>(
@@ -117,8 +126,9 @@ export function FuelAlertsPanel() {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-zinc-900">New alert zone</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Get in-app notifications when fuel status changes within range of your
-          current location.
+          Get in-app and email notifications when fuel status changes within range
+          of your current location. Email alerts use your account address when
+          signed in.
         </p>
 
         <div className="mt-4">
@@ -171,6 +181,32 @@ export function FuelAlertsPanel() {
           <p className="mt-3 text-sm text-zinc-600" role="status">
             {message}
           </p>
+        )}
+
+        {pushAvailable && (
+          <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50 p-3">
+            <p className="text-sm font-medium text-zinc-800">Browser push</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Get alerts even when the app is closed (after creating an alert zone).
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                pushEnabled ? unsubscribe() : subscribe()
+              }
+              disabled={pushLoading || subscriptions.length === 0}
+              className="mt-2 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {pushLoading
+                ? "…"
+                : pushEnabled
+                  ? "Disable push notifications"
+                  : "Enable push notifications"}
+            </button>
+            {pushError && (
+              <p className="mt-2 text-xs text-red-600">{pushError}</p>
+            )}
+          </div>
         )}
       </div>
 

@@ -1,12 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import type { MapRef } from "react-map-gl/mapbox";
 import type { GeoJSONSource, MapLayerMouseEvent } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Map, { Layer, NavigationControl, Source } from "react-map-gl/mapbox";
 import type { StationWithMeta } from "@/lib/types/station";
 import { boundsFromPoints } from "@/lib/utils/geo";
+
+const LeafletMapView = dynamic(
+  () => import("./LeafletMapView").then((m) => m.LeafletMapView),
+  { ssr: false }
+);
 
 interface MapViewProps {
   stations: StationWithMeta[];
@@ -29,6 +35,7 @@ function stationsToGeoJson(stations: StationWithMeta[]) {
         classification: station.classification,
         is_premium: station.is_premium,
         is_sponsored: station.is_sponsored,
+        verification_stale: station.verification_stale ?? false,
       },
       geometry: {
         type: "Point" as const,
@@ -41,6 +48,7 @@ function stationsToGeoJson(stations: StationWithMeta[]) {
 export function MapView({
   stations,
   selectedId,
+  userLocation,
   routePolyline,
   fitToStations,
   flyTo,
@@ -125,15 +133,16 @@ export function MapView({
 
   if (!token) {
     return (
-      <div className="flex h-full min-h-[50vh] items-center justify-center bg-zinc-100 p-6 text-center">
-        <div>
-          <p className="font-medium text-zinc-800">Map unavailable</p>
-          <p className="mt-1 text-sm text-zinc-600">
-            Add <code className="text-xs">NEXT_PUBLIC_MAPBOX_TOKEN</code> to
-            Vercel to enable the interactive map with all station pins.
-          </p>
-        </div>
-      </div>
+      <LeafletMapView
+        stations={stations}
+        selectedId={selectedId}
+        userLocation={userLocation}
+        routePolyline={routePolyline}
+        fitToStations={fitToStations}
+        flyTo={flyTo}
+        onSelectStation={onSelectStation}
+        onMoveEnd={onMoveEnd}
+      />
     );
   }
 
@@ -220,15 +229,24 @@ export function MapView({
           filter={["!", ["has", "point_count"]]}
           paint={{
             "circle-color": [
-              "match",
-              ["get", "classification"],
-              "car",
-              "#2563eb",
-              "boat",
-              "#0d9488",
-              "dual",
-              "#7c3aed",
-              "#2563eb",
+              "case",
+              ["get", "is_premium"],
+              "#f59e0b",
+              ["get", "is_sponsored"],
+              "#f59e0b",
+              ["==", ["get", "verification_stale"], true],
+              "#ea580c",
+              [
+                "match",
+                ["get", "classification"],
+                "car",
+                "#2563eb",
+                "boat",
+                "#0d9488",
+                "dual",
+                "#7c3aed",
+                "#2563eb",
+              ],
             ],
             "circle-radius": [
               "case",

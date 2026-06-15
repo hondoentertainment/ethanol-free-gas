@@ -27,6 +27,20 @@ export function MapLegend() {
           />
           Car & boat
         </li>
+        <li className="flex items-center gap-2">
+          <span
+            className="h-3 w-3 rounded-full bg-[#ea580c] ring-2 ring-white"
+            aria-hidden="true"
+          />
+          Needs verification
+        </li>
+        <li className="flex items-center gap-2">
+          <span
+            className="h-3 w-3 rounded-full bg-[#f59e0b] ring-2 ring-white"
+            aria-hidden="true"
+          />
+          Premium / sponsored
+        </li>
       </ul>
     </div>
   );

@@ -57,6 +57,7 @@ export interface LastVerification {
 export interface StationWithMeta extends Station {
   last_verification: LastVerification | null;
   verification_label: VerificationLabel;
+  verification_stale?: boolean;
   distance_miles?: number;
   distance_from_route_miles?: number;
 }

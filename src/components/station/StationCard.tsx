@@ -38,7 +38,10 @@ export function StationCard({
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <ClassificationBadge classification={station.classification} />
-        <VerificationBadge label={station.verification_label} />
+        <VerificationBadge
+          label={station.verification_label}
+          stale={station.verification_stale}
+        />
         <PremiumBadge
           isPremium={station.is_premium}
           isSponsored={station.is_sponsored}

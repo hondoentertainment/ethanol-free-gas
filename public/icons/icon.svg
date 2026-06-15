@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="E0 Finder">
+  <rect width="512" height="512" rx="96" fill="#0284c7"/>
+  <path fill="#fff" d="M128 352h256v32H128zm48-192h48l32 128h-48l-8-32h-64l-8 32h-48l48-192zm40 80l-20-80-20 80h40z"/>
+  <circle cx="368" cy="160" r="40" fill="#22c55e"/>
+  <text x="368" y="172" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="bold" fill="#fff">E0</text>
+</svg>

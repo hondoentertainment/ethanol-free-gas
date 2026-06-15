@@ -31,13 +31,19 @@ export function HeaderAuth() {
     return (
       <div className="flex shrink-0 items-center gap-2">
         {points != null && points > 0 && (
-          <span className="hidden rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 sm:inline">
+          <Link
+            href="/profile"
+            className="hidden rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 sm:inline"
+          >
             {points} pts
-          </span>
+          </Link>
         )}
-        <span className="hidden max-w-[8rem] truncate text-sm text-zinc-600 sm:inline">
+        <Link
+          href="/profile"
+          className="hidden max-w-[8rem] truncate text-sm text-zinc-600 hover:text-zinc-900 sm:inline"
+        >
           {label}
-        </span>
+        </Link>
         <button
           type="button"
           onClick={signOut}

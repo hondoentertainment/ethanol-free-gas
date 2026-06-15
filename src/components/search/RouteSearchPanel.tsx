@@ -5,7 +5,14 @@ import type { GeocodeSuggestion } from "@/components/search/SearchBar";
 import type { StationClassification, StationWithMeta } from "@/lib/types/station";
 
 interface RouteSearchPanelProps {
-  onResults: (stations: StationWithMeta[], route: { lat: number; lng: number }[]) => void;
+  onResults: (
+    stations: StationWithMeta[],
+    route: { lat: number; lng: number }[],
+    endpoints: {
+      origin: { lat: number; lng: number };
+      dest: { lat: number; lng: number };
+    }
+  ) => void;
   onClear: () => void;
   classification: StationClassification | "";
   loading?: boolean;
@@ -60,7 +67,14 @@ export function RouteSearchPanel({
         throw new Error(data.error ?? "Route search failed");
       }
 
-      onResults(data.stations as StationWithMeta[], data.route);
+      onResults(
+        data.stations as StationWithMeta[],
+        data.route,
+        {
+          origin: { lat: from.lat, lng: from.lng },
+          dest: { lat: to.lat, lng: to.lng },
+        }
+      );
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Route search failed");

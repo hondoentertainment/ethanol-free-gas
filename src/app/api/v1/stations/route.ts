@@ -1,3 +1,4 @@
+import { logApiUsage } from "@/lib/api/usage-log";
 import { validateApiLicenseKey } from "@/lib/api/license";
 import {
   parseClassificationFromRequest,
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
       { error: "Valid API license key required (X-API-Key header)" },
       { status: 401 }
     );
+  }
+
+  if (apiKey) {
+    void logApiUsage(apiKey, "/api/v1/stations");
   }
 
   const { searchParams } = request.nextUrl;

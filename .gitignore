@@ -44,3 +44,6 @@ yarn-error.log*
 /data/pure-gas-stations.json
 *.tsbuildinfo
 next-env.d.ts
+
+.env*.local
+.supabase-db-password.tmp

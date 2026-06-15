@@ -54,6 +54,23 @@ export function LoginForm() {
     }
   }
 
+  async function signInWithGitHub() {
+    if (!supabaseReady) return;
+    setLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+      },
+    });
+
+    if (error) {
+      setLoading(false);
+      setMessage(error.message);
+    }
+  }
+
   async function signInWithApple() {
     if (!supabaseReady) return;
     setLoading(true);
@@ -116,6 +133,15 @@ export function LoginForm() {
           className="w-full rounded-xl border border-zinc-200 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
         >
           Continue with Google
+        </button>
+
+        <button
+          type="button"
+          onClick={signInWithGitHub}
+          disabled={loading}
+          className="mt-2 w-full rounded-xl border border-zinc-200 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          Continue with GitHub
         </button>
 
         <button

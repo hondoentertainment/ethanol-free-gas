@@ -1,4 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/send";
+import { sendWebPush } from "@/lib/push/web-push";
 import { haversineMiles } from "@/lib/utils/geo";
 import type { AlertType } from "@/lib/types/alerts";
 
@@ -15,6 +17,10 @@ interface SubscriptionRow {
   lng: number;
   radius_miles: number;
   alert_types: AlertType[];
+  push_endpoint: string | null;
+  push_p256dh: string | null;
+  push_auth: string | null;
+  email: string | null;
 }
 
 const ALERT_COPY: Record<
@@ -44,11 +50,14 @@ export async function dispatchFuelAlerts(
 
   const { data: subscriptions, error } = await supabase
     .from("fuel_alert_subscriptions")
-    .select("user_id, lat, lng, radius_miles, alert_types");
+    .select(
+      "user_id, lat, lng, radius_miles, alert_types, push_endpoint, push_p256dh, push_auth, email"
+    );
 
   if (error || !subscriptions?.length) return 0;
 
   const copy = ALERT_COPY[params.alertType](params.stationName);
+  const stationUrl = `/station/${params.stationId}`;
   const rows: {
     user_id: string;
     title: string;
@@ -56,6 +65,8 @@ export async function dispatchFuelAlerts(
     station_id: string;
     alert_type: AlertType;
   }[] = [];
+
+  const pushTargets: SubscriptionRow[] = [];
 
   for (const sub of subscriptions as SubscriptionRow[]) {
     if (excludeUserId && sub.user_id === excludeUserId) continue;
@@ -76,6 +87,10 @@ export async function dispatchFuelAlerts(
       station_id: params.stationId,
       alert_type: params.alertType,
     });
+
+    if (sub.push_endpoint && sub.push_p256dh && sub.push_auth) {
+      pushTargets.push(sub);
+    }
   }
 
   if (rows.length === 0) return 0;
@@ -84,5 +99,41 @@ export async function dispatchFuelAlerts(
     .from("user_notifications")
     .insert(rows);
 
-  return insertError ? 0 : rows.length;
+  if (insertError) return 0;
+
+  await Promise.all(
+    pushTargets.map((sub) =>
+      sendWebPush(
+        {
+          endpoint: sub.push_endpoint!,
+          keys: { p256dh: sub.push_p256dh!, auth: sub.push_auth! },
+        },
+        { title: copy.title, body: copy.body, url: stationUrl }
+      )
+    )
+  );
+
+  const emailTargets = (subscriptions as SubscriptionRow[]).filter((sub) => {
+    if (excludeUserId && sub.user_id === excludeUserId) return false;
+    if (!sub.email || !sub.alert_types?.includes(params.alertType)) return false;
+    const distance = haversineMiles(
+      sub.lat,
+      sub.lng,
+      params.target.lat,
+      params.target.lng
+    );
+    return distance <= Number(sub.radius_miles);
+  });
+
+  await Promise.all(
+    emailTargets.map((sub) =>
+      sendEmail({
+        to: sub.email!,
+        subject: copy.title,
+        html: `<p>${copy.body}</p><p><a href="https://ethanol-free-gas.vercel.app${stationUrl}">View station</a></p>`,
+      })
+    )
+  );
+
+  return rows.length;
 }

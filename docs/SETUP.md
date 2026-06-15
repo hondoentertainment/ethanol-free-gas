@@ -15,7 +15,7 @@
    - Redirect URLs:
      - `https://ethanol-free-gas.vercel.app/auth/callback`
      - `http://localhost:3000/auth/callback`
-4. Enable Email, Google, and Apple providers
+4. Enable Email provider (Google/Apple: see `scripts/setup-google-oauth.mjs`)
 
 ## 2. Environment variables (Vercel + local)
 

@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
       push_endpoint: body.push_endpoint ?? null,
       push_p256dh: body.push_p256dh ?? null,
       push_auth: body.push_auth ?? null,
+      email: (body.email as string | undefined)?.trim() || user.email || null,
     })
     .select("id, lat, lng, radius_miles, alert_types, created_at")
     .single();

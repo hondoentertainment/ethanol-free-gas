@@ -1,4 +1,8 @@
 import {
+  fetchRouteWithMapbox,
+  fetchRouteWithOsrm,
+} from "@/lib/route/providers";
+import {
   enrichStation,
   parseClassification,
 } from "@/lib/data/stations";
@@ -17,7 +21,6 @@ import type {
 } from "@/lib/types/station";
 import { boundingBox, haversineMiles } from "@/lib/utils/geo";
 import {
-  decodeMapboxPolyline,
   distanceToPolylineMiles,
   sortStationsForDisplay,
   type LatLng,
@@ -237,26 +240,10 @@ export async function fetchMapboxRoute(
   destination: LatLng
 ): Promise<LatLng[]> {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-  if (!token) throw new Error("Mapbox token not configured");
-
-  const url = new URL(
-    `https://api.mapbox.com/directions/v5/mapbox/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}`
-  );
-  url.searchParams.set("access_token", token);
-  url.searchParams.set("geometries", "geojson");
-  url.searchParams.set("overview", "full");
-
-  const response = await fetch(url.toString(), { next: { revalidate: 300 } });
-  if (!response.ok) throw new Error("Failed to fetch route from Mapbox");
-
-  const data = (await response.json()) as {
-    routes?: { geometry?: { coordinates?: [number, number][] } }[];
-  };
-
-  const coordinates = data.routes?.[0]?.geometry?.coordinates;
-  if (!coordinates?.length) throw new Error("No route found for this trip");
-
-  return decodeMapboxPolyline(coordinates);
+  if (token) {
+    return fetchRouteWithMapbox(origin, destination, token);
+  }
+  return fetchRouteWithOsrm(origin, destination);
 }
 
 export function parseClassificationFromRequest(
