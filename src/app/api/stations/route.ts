@@ -18,10 +18,10 @@ export async function GET(request: NextRequest) {
     Math.max(Number(searchParams.get("radius") ?? 25), 1),
     100
   );
-  const limit = Math.min(
-    Math.max(Number(searchParams.get("limit") ?? 50), 1),
-    200
-  );
+  const showAll = searchParams.get("all") === "true";
+  const limit = showAll
+    ? Math.min(Math.max(Number(searchParams.get("limit") ?? 1000), 1), 1000)
+    : Math.min(Math.max(Number(searchParams.get("limit") ?? 50), 1), 200);
 
   if (
     (latParam && Number.isNaN(lat)) ||
@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       lng,
       radius,
       limit,
+      all: showAll,
     });
 
     return NextResponse.json({ stations, count: stations.length });

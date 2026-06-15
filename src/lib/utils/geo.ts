@@ -36,3 +36,38 @@ export function boundingBox(
 export function formatCoordinates(lat: number, lng: number): string {
   return `${lat.toFixed(6)},${lng.toFixed(6)}`;
 }
+
+export interface GeoBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
+export function boundsFromPoints(
+  points: { lat: number; lng: number }[]
+): GeoBounds | null {
+  if (points.length === 0) return null;
+
+  let minLat = points[0].lat;
+  let maxLat = points[0].lat;
+  let minLng = points[0].lng;
+  let maxLng = points[0].lng;
+
+  for (const p of points) {
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+    minLng = Math.min(minLng, p.lng);
+    maxLng = Math.max(maxLng, p.lng);
+  }
+
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+/** US + Canada approximate bounds for ethanol-free station coverage */
+export const NORTH_AMERICA_BOUNDS: GeoBounds = {
+  minLat: 24,
+  maxLat: 50,
+  minLng: -130,
+  maxLng: -65,
+};

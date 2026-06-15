@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { AdSlot } from "@/components/ads/AdSlot";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapView } from "@/components/map/MapView";
+import { MapLegend } from "@/components/map/MapLegend";
+import { StationListDrawer } from "@/components/map/StationListDrawer";
 import { ClassificationFilterChips } from "@/components/search/ClassificationFilterChips";
 import { RouteSearchPanel } from "@/components/search/RouteSearchPanel";
 import {
@@ -11,14 +12,11 @@ import {
   type SearchFilters,
 } from "@/components/search/SearchBar";
 import { StationBottomSheet } from "@/components/station/StationBottomSheet";
-import { StationCard } from "@/components/station/StationCard";
-import { MOCK_STATIONS } from "@/lib/data/stations";
+import { ALL_DEMO_STATIONS } from "@/lib/data/seed-stations";
 import { cacheStations, getCachedStations } from "@/lib/offline/station-cache";
 import type { StationWithMeta } from "@/lib/types/station";
 import { haversineMiles } from "@/lib/utils/geo";
-
-const DEFAULT_CENTER = { lat: 38.9784, lng: -76.4922 };
-const SEARCH_AREA_THRESHOLD_MILES = 0.75;
+import { sortStationsForDisplay } from "@/lib/utils/route";
 
 const EMPTY_FILTERS: SearchFilters = {
   q: "",
@@ -28,146 +26,178 @@ const EMPTY_FILTERS: SearchFilters = {
   classification: "",
 };
 
+const NEARBY_RADIUS_MILES = 50;
+
+function applyClientFilters(
+  stations: StationWithMeta[],
+  filters: SearchFilters,
+  nearbyOnly: boolean,
+  userLocation: { lat: number; lng: number } | null
+): StationWithMeta[] {
+  let results = [...stations];
+  const q = filters.q.trim().toLowerCase();
+
+  if (filters.classification) {
+    results = results.filter((s) => s.classification === filters.classification);
+  }
+  if (filters.zip.trim()) {
+    results = results.filter((s) => s.zip?.startsWith(filters.zip.trim()));
+  }
+  if (filters.city.trim()) {
+    const city = filters.city.trim().toLowerCase();
+    results = results.filter((s) => s.city.toLowerCase().includes(city));
+  }
+  if (filters.state.trim()) {
+    const state = filters.state.trim().toLowerCase();
+    results = results.filter((s) => s.state.toLowerCase() === state);
+  }
+  if (q) {
+    results = results.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.address.toLowerCase().includes(q) ||
+        s.city.toLowerCase().includes(q) ||
+        (s.zip?.toLowerCase().includes(q) ?? false)
+    );
+  }
+
+  if (userLocation) {
+    results = results.map((station) => ({
+      ...station,
+      distance_miles: haversineMiles(
+        userLocation.lat,
+        userLocation.lng,
+        station.lat,
+        station.lng
+      ),
+    }));
+    if (nearbyOnly) {
+      results = results.filter(
+        (s) => (s.distance_miles ?? Infinity) <= NEARBY_RADIUS_MILES
+      );
+    }
+  }
+
+  return sortStationsForDisplay(results);
+}
+
 export function HomeMapPage() {
+  const [allStations, setAllStations] = useState<StationWithMeta[]>(ALL_DEMO_STATIONS);
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
-  const [stations, setStations] = useState<StationWithMeta[]>(MOCK_STATIONS);
   const [selectedStation, setSelectedStation] = useState<StationWithMeta | null>(
     null
   );
-  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
-  const [searchCenter, setSearchCenter] = useState(DEFAULT_CENTER);
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
   const [routePolyline, setRoutePolyline] = useState<
     { lat: number; lng: number }[] | null
   >(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingMockData, setUsingMockData] = useState(true);
   const [routeMode, setRouteMode] = useState(false);
+  const [nearbyOnly, setNearbyOnly] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  const [fitMap, setFitMap] = useState(true);
 
-  const mapMovedFromSearch =
-    !routeMode &&
-    haversineMiles(
-      mapCenter.lat,
-      mapCenter.lng,
-      searchCenter.lat,
-      searchCenter.lng
-    ) > SEARCH_AREA_THRESHOLD_MILES;
+  const displayStations = useMemo(() => {
+    if (routeMode) return allStations;
+    return applyClientFilters(
+      allStations,
+      filters,
+      nearbyOnly,
+      userLocation
+    );
+  }, [allStations, filters, nearbyOnly, userLocation, routeMode]);
 
-  const persistCache = useCallback(
-    (results: StationWithMeta[], center: { lat: number; lng: number }) => {
-      cacheStations({
-        stations: results,
-        cachedAt: Date.now(),
-        center,
-      });
-    },
-    []
-  );
+  const loadAllStations = useCallback(async (location?: { lat: number; lng: number }) => {
+    if (!navigator.onLine) {
+      const cached = getCachedStations();
+      if (cached?.stations?.length) {
+        setAllStations(cached.stations as StationWithMeta[]);
+        setUsingMockData(false);
+        setError("Offline — showing cached stations");
+      }
+      setLoading(false);
+      return;
+    }
 
-  const fetchStations = useCallback(
-    async (
-      nextSearchCenter = searchCenter,
-      searchFilters = filters
-    ) => {
-      if (!navigator.onLine) {
-        const cached = getCachedStations();
-        if (cached?.stations?.length) {
-          setStations(cached.stations as StationWithMeta[]);
-          setUsingMockData(false);
-          setError("Offline — showing cached stations");
-        }
-        return;
+    setLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams({
+      all: "true",
+      limit: "1000",
+    });
+    if (location) {
+      params.set("lat", String(location.lat));
+      params.set("lng", String(location.lng));
+    }
+
+    try {
+      const response = await fetch(`/api/stations?${params.toString()}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to load stations");
       }
 
-      setLoading(true);
-      setError(null);
-      setRouteMode(false);
-      setRoutePolyline(null);
-
-      const params = new URLSearchParams({
-        lat: String(nextSearchCenter.lat),
-        lng: String(nextSearchCenter.lng),
-        radius: "50",
-      });
-
-      if (searchFilters.q) params.set("q", searchFilters.q);
-      if (searchFilters.zip) params.set("zip", searchFilters.zip);
-      if (searchFilters.city) params.set("city", searchFilters.city);
-      if (searchFilters.state) params.set("state", searchFilters.state);
-      if (searchFilters.classification) {
-        params.set("classification", searchFilters.classification);
+      const results = data.stations as StationWithMeta[];
+      if (results.length > 0) {
+        setAllStations(results);
+        setUsingMockData(false);
+        cacheStations({
+          stations: results,
+          cachedAt: Date.now(),
+          center: location,
+        });
+      } else {
+        setAllStations(ALL_DEMO_STATIONS);
+        setUsingMockData(true);
       }
-
-      try {
-        const response = await fetch(`/api/stations?${params.toString()}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error ?? "Failed to load stations");
-        }
-
-        const results = data.stations as StationWithMeta[];
-        if (results.length > 0) {
-          setStations(results);
-          setUsingMockData(false);
-          persistCache(results, nextSearchCenter);
-        } else if (
-          searchFilters.q ||
-          searchFilters.zip ||
-          searchFilters.city ||
-          searchFilters.state
-        ) {
-          setStations([]);
-          setUsingMockData(false);
-        } else {
-          setStations(MOCK_STATIONS);
-          setUsingMockData(true);
-        }
-
-        setSearchCenter(nextSearchCenter);
-        setMapCenter(nextSearchCenter);
-      } catch (fetchError) {
-        const cached = getCachedStations();
-        if (cached?.stations?.length) {
-          setStations(cached.stations as StationWithMeta[]);
-          setUsingMockData(false);
-          setError("Network error — showing cached stations");
-        } else {
-          setStations(MOCK_STATIONS);
-          setUsingMockData(true);
-          setError(
-            fetchError instanceof Error
-              ? fetchError.message
-              : "Using demo data — connect Supabase to load live stations"
-          );
-        }
-      } finally {
-        setLoading(false);
+      setFitMap(true);
+    } catch (fetchError) {
+      const cached = getCachedStations();
+      if (cached?.stations?.length) {
+        setAllStations(cached.stations as StationWithMeta[]);
+        setUsingMockData(false);
+        setError("Network error — showing cached stations");
+      } else {
+        setAllStations(ALL_DEMO_STATIONS);
+        setUsingMockData(true);
+        setError(
+          fetchError instanceof Error
+            ? fetchError.message
+            : "Using demo data — connect Supabase for live stations"
+        );
       }
-    },
-    [filters, searchCenter, persistCache]
-  );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!navigator.geolocation) {
-      fetchStations(DEFAULT_CENTER, EMPTY_FILTERS);
+      loadAllStations();
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const center = {
+        const loc = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        fetchStations(center, EMPTY_FILTERS);
+        setUserLocation(loc);
+        loadAllStations(loc);
       },
-      () => fetchStations(DEFAULT_CENTER, EMPTY_FILTERS),
-      { timeout: 8000, maximumAge: 60000 }
+      () => loadAllStations(),
+      { timeout: 8000, maximumAge: 120000 }
     );
-    // Initial load only
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadAllStations]);
 
   function handleUseLocation() {
     if (!navigator.geolocation) {
@@ -177,21 +207,24 @@ export function HomeMapPage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const nextCenter = {
+        const loc = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        setMapCenter(nextCenter);
-        fetchStations(nextCenter, filters);
+        setUserLocation(loc);
+        setFlyTo(loc);
+        setNearbyOnly(true);
+        setFitMap(false);
       },
       () => setError("Unable to access your location")
     );
   }
 
   function handleSelectLocation(suggestion: GeocodeSuggestion) {
-    const nextCenter = { lat: suggestion.lat, lng: suggestion.lng };
-    setMapCenter(nextCenter);
-    fetchStations(nextCenter, {
+    const loc = { lat: suggestion.lat, lng: suggestion.lng };
+    setFlyTo(loc);
+    setFitMap(false);
+    setFilters({
       ...filters,
       q: suggestion.label,
       city: suggestion.city ?? filters.city,
@@ -203,136 +236,163 @@ export function HomeMapPage() {
   function handleClassificationChange(
     classification: SearchFilters["classification"]
   ) {
-    const nextFilters = { ...filters, classification };
-    setFilters(nextFilters);
-    fetchStations(searchCenter, nextFilters);
+    setFilters({ ...filters, classification });
+    setFitMap(true);
   }
 
   function handleRouteResults(
     results: StationWithMeta[],
     route: { lat: number; lng: number }[]
   ) {
-    setStations(results);
+    setAllStations(results);
     setRoutePolyline(route);
     setRouteMode(true);
+    setNearbyOnly(false);
     setUsingMockData(false);
-    setSearchCenter({
-      lat: route[0]?.lat ?? searchCenter.lat,
-      lng: route[0]?.lng ?? searchCenter.lng,
-    });
-    if (route[0]) {
-      setMapCenter({ lat: route[0].lat, lng: route[0].lng });
-    }
-    persistCache(results, searchCenter);
+    setFitMap(true);
+    setFlyTo(null);
+    setListOpen(false);
   }
 
   function clearRoute() {
     setRoutePolyline(null);
     setRouteMode(false);
-    fetchStations(searchCenter, filters);
+    loadAllStations(userLocation ?? undefined);
   }
 
+  const listTitle = routeMode
+    ? "Stations along route"
+    : nearbyOnly
+      ? `Within ${NEARBY_RADIUS_MILES} miles`
+      : "All E0 stations";
+
   return (
-    <div className="relative flex-1 min-h-0">
-      <SearchBar
-        filters={filters}
-        onChange={setFilters}
-        onSearch={() => fetchStations(mapCenter, filters)}
-        onUseLocation={handleUseLocation}
-        onSelectLocation={handleSelectLocation}
-        loading={loading}
-        classificationChips={
-          <ClassificationFilterChips
-            value={filters.classification}
-            onChange={handleClassificationChange}
-          />
-        }
-        routeSearch={
-          <RouteSearchPanel
-            classification={filters.classification}
+    <div className="relative h-[calc(100dvh-3.5rem)] min-h-0 w-full">
+      <div className="absolute inset-0">
+        <MapView
+          stations={displayStations}
+          selectedId={selectedStation?.id ?? null}
+          userLocation={userLocation}
+          routePolyline={routePolyline}
+          fitToStations={fitMap}
+          flyTo={flyTo}
+          onSelectStation={(station) => {
+            setSelectedStation(station);
+            setListOpen(false);
+          }}
+        />
+      </div>
+
+      <div className="absolute inset-x-0 top-0 z-20 mx-auto max-w-lg px-3 pt-3 pointer-events-none">
+        <div className="pointer-events-auto">
+          <SearchBar
+            filters={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setFitMap(true);
+            }}
+            onSearch={() => setFitMap(true)}
+            onUseLocation={handleUseLocation}
+            onSelectLocation={handleSelectLocation}
             loading={loading}
-            onResults={handleRouteResults}
-            onClear={clearRoute}
-          />
-        }
-      />
-
-      <div className="absolute inset-0 top-0 flex flex-col">
-        <div className="relative flex-1 min-h-[45vh]">
-          <MapView
-            stations={stations}
-            selectedId={selectedStation?.id ?? null}
-            center={mapCenter}
-            searchCenter={searchCenter}
-            routePolyline={routePolyline}
-            onSelectStation={setSelectedStation}
-            onMoveEnd={setMapCenter}
-          />
-
-          {mapMovedFromSearch && (
-            <div className="absolute inset-x-0 top-36 z-10 flex justify-center px-3">
-              <button
-                type="button"
-                onClick={() => fetchStations(mapCenter, filters)}
-                disabled={loading}
-                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-50"
-              >
-                Search this area
-              </button>
-            </div>
-          )}
-
-          {routeMode && (
-            <div className="absolute inset-x-0 top-36 z-10 flex justify-center px-3">
-              <button
-                type="button"
-                onClick={clearRoute}
-                className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-sky-700"
-              >
-                Clear route search
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-zinc-200 bg-zinc-50 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-zinc-800">
-              {routeMode ? "Along route" : "Nearby"}: {stations.length} station
-              {stations.length === 1 ? "" : "s"}
-            </p>
-            {usingMockData && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                Demo data
-              </span>
-            )}
-          </div>
-          {error && (
-            <p className="mb-2 text-sm text-amber-700" role="alert">
-              {error}
-            </p>
-          )}
-          <AdSlot placement="list" />
-          <div className="mt-2 grid gap-2 max-h-[32vh] overflow-y-auto">
-            {stations.map((station) => (
-              <StationCard
-                key={station.id}
-                station={station}
-                selected={selectedStation?.id === station.id}
-                onSelect={() => setSelectedStation(station)}
+            classificationChips={
+              <ClassificationFilterChips
+                value={filters.classification}
+                onChange={handleClassificationChange}
               />
-            ))}
-          </div>
-          <div className="mt-3">
-            <AdSlot placement="footer" />
-          </div>
+            }
+            routeSearch={
+              <RouteSearchPanel
+                classification={filters.classification}
+                loading={loading}
+                onResults={handleRouteResults}
+                onClear={clearRoute}
+              />
+            }
+          />
         </div>
       </div>
+
+      <div className="absolute bottom-4 left-3 z-20">
+        <MapLegend />
+      </div>
+
+      <div className="absolute bottom-4 right-3 z-20 flex flex-col gap-2">
+        {!routeMode && (
+          <button
+            type="button"
+            onClick={() => {
+              setNearbyOnly((v) => !v);
+              setFitMap(true);
+            }}
+            className={`rounded-full px-4 py-2 text-sm font-medium shadow-lg ring-1 ${
+              nearbyOnly
+                ? "bg-sky-600 text-white ring-sky-700"
+                : "bg-white text-zinc-800 ring-zinc-200 hover:bg-zinc-50"
+            }`}
+          >
+            {nearbyOnly ? "Showing nearby" : "Show all on map"}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            setFitMap(true);
+            setFlyTo(null);
+          }}
+          className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
+        >
+          Fit all pins
+        </button>
+        <button
+          type="button"
+          onClick={() => setListOpen(true)}
+          className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
+        >
+          List ({displayStations.length})
+        </button>
+      </div>
+
+      {usingMockData && (
+        <div className="absolute left-3 top-[11.5rem] z-10 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 shadow-sm">
+          Demo data — {ALL_DEMO_STATIONS.length} stations
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="absolute left-3 right-3 top-[13.5rem] z-10 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+
+      {routeMode && (
+        <div className="absolute inset-x-0 top-28 z-10 flex justify-center px-3 pointer-events-none">
+          <button
+            type="button"
+            onClick={clearRoute}
+            className="pointer-events-auto rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-sky-700"
+          >
+            Clear route search
+          </button>
+        </div>
+      )}
+
+      <StationListDrawer
+        open={listOpen && !selectedStation}
+        onClose={() => setListOpen(false)}
+        stations={displayStations}
+        selectedId={selectedStation?.id ?? null}
+        onSelectStation={setSelectedStation}
+        title={listTitle}
+      />
 
       <StationBottomSheet
         station={selectedStation}
         onClose={() => setSelectedStation(null)}
-        onVerified={() => fetchStations(searchCenter, filters)}
+        onVerified={() => loadAllStations(userLocation ?? undefined)}
       />
     </div>
   );

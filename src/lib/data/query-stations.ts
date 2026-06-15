@@ -1,8 +1,8 @@
 import {
   enrichStation,
-  MOCK_STATIONS,
   parseClassification,
 } from "@/lib/data/stations";
+import { ALL_DEMO_STATIONS } from "@/lib/data/seed-stations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -31,6 +31,7 @@ export interface StationQueryParams {
   limit?: number;
   routePolyline?: LatLng[];
   corridorMiles?: number;
+  all?: boolean;
 }
 
 function filterMockStations(params: StationQueryParams): StationWithMeta[] {
@@ -45,7 +46,7 @@ function filterMockStations(params: StationQueryParams): StationWithMeta[] {
       ? { lat: params.lat, lng: params.lng }
       : undefined;
 
-  let results = [...MOCK_STATIONS];
+  let results = [...ALL_DEMO_STATIONS];
 
   if (classification) {
     results = results.filter((s) => s.classification === classification);
@@ -91,7 +92,7 @@ function filterMockStations(params: StationQueryParams): StationWithMeta[] {
           station.lng
         ),
       }))
-      .filter((s) => s.distance_miles <= radius);
+      .filter((s) => params.all || s.distance_miles <= radius);
   }
 
   return sortStationsForDisplay(results);
@@ -101,14 +102,17 @@ export async function queryStations(
   params: StationQueryParams
 ): Promise<StationWithMeta[]> {
   const radius = Math.min(Math.max(params.radius ?? 25, 1), 100);
-  const limit = Math.min(Math.max(params.limit ?? 50, 1), 200);
+  const limit = Math.min(
+    Math.max(params.limit ?? params.all ? 1000 : 50, 1),
+    1000
+  );
   const center =
     params.lat != null && params.lng != null
       ? { lat: params.lat, lng: params.lng }
       : undefined;
 
   if (!isSupabaseConfigured()) {
-    return filterMockStations({ ...params, radius });
+    return filterMockStations({ ...params, radius }).slice(0, limit);
   }
 
   const supabase = await createClient();
@@ -132,7 +136,7 @@ export async function queryStations(
     );
   }
 
-  if (center && !params.routePolyline?.length) {
+  if (center && !params.routePolyline?.length && !params.all) {
     const box = boundingBox(center.lat, center.lng, radius);
     query = query
       .gte("lat", box.minLat)
@@ -195,10 +199,14 @@ export async function queryStations(
         ),
       }))
       .filter((s) => s.distance_from_route_miles <= corridor);
-  } else if (center) {
+  } else if (center && !params.all) {
     enriched = enriched
       .filter((s) => (s.distance_miles ?? 0) <= radius)
       .sort((a, b) => (a.distance_miles ?? 0) - (b.distance_miles ?? 0));
+  } else if (center && params.all) {
+    enriched = enriched.map((station) =>
+      enrichStation(station, verifications.filter((v) => v.station_id === station.id), center)
+    );
   }
 
   return sortStationsForDisplay(enriched);
