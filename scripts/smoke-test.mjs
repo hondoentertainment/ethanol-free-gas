@@ -81,8 +81,8 @@ if (apiKeys?.[0]) {
 }
 
 if (adminSecret) {
-  await check("admin stats", async () => {
-    const res = await fetch(`${base}/api/admin/stats`, {
+  await check("admin dashboard", async () => {
+    const res = await fetch(`${base}/api/admin/dashboard`, {
       headers: { "x-admin-key": adminSecret },
       signal: AbortSignal.timeout(15000),
     });
