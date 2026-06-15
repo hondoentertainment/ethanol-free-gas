@@ -14,7 +14,15 @@ export function Header() {
           </h1>
         </Link>
       </div>
-      <HeaderAuth />
+      <div className="flex shrink-0 items-center gap-2">
+        <Link
+          href="/station/add"
+          className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Add station
+        </Link>
+        <HeaderAuth />
+      </div>
     </header>
   );
 }

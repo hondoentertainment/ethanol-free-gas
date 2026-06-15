@@ -28,6 +28,8 @@ interface SearchBarProps {
   onUseLocation: () => void;
   onSelectLocation?: (suggestion: GeocodeSuggestion) => void;
   loading?: boolean;
+  classificationChips?: React.ReactNode;
+  routeSearch?: React.ReactNode;
 }
 
 export function SearchBar({
@@ -37,6 +39,8 @@ export function SearchBar({
   onUseLocation,
   onSelectLocation,
   loading,
+  classificationChips,
+  routeSearch,
 }: SearchBarProps) {
   const [expanded, setExpanded] = useState(false);
   const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
@@ -187,6 +191,12 @@ export function SearchBar({
             {expanded ? "Hide filters" : "More filters"}
           </button>
         </div>
+
+        {classificationChips && (
+          <div className="mt-2">{classificationChips}</div>
+        )}
+
+        {routeSearch}
 
         {expanded && (
           <div className="mt-3 grid gap-2 sm:grid-cols-2">

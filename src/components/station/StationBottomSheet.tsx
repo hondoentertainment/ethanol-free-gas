@@ -3,6 +3,7 @@
 import type { StationWithMeta } from "@/lib/types/station";
 import { ClassificationBadge } from "./ClassificationBadge";
 import { DirectionsLinks } from "./DirectionsLinks";
+import { PremiumBadge } from "./PremiumBadge";
 import { VerificationBadge } from "./VerificationBadge";
 import { VerificationForm } from "./VerificationForm";
 
@@ -43,6 +44,10 @@ export function StationBottomSheet({
         <div className="mt-3 flex flex-wrap gap-2">
           <ClassificationBadge classification={station.classification} />
           <VerificationBadge label={station.verification_label} />
+          <PremiumBadge
+            isPremium={station.is_premium}
+            isSponsored={station.is_sponsored}
+          />
         </div>
 
         <dl className="mt-4 grid gap-2 text-sm">

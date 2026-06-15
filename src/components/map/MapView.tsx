@@ -1,7 +1,7 @@
 "use client";
 
 import "mapbox-gl/dist/mapbox-gl.css";
-import Map, { Marker, NavigationControl } from "react-map-gl/mapbox";
+import Map, { Layer, Marker, NavigationControl, Source } from "react-map-gl/mapbox";
 import type { StationClassification, StationWithMeta } from "@/lib/types/station";
 
 const CLASSIFICATION_COLORS: Record<StationClassification, string> = {
@@ -15,6 +15,7 @@ interface MapViewProps {
   selectedId: string | null;
   center: { lat: number; lng: number };
   searchCenter?: { lat: number; lng: number };
+  routePolyline?: { lat: number; lng: number }[] | null;
   onSelectStation: (station: StationWithMeta) => void;
   onMoveEnd?: (center: { lat: number; lng: number }) => void;
 }
@@ -24,6 +25,7 @@ export function MapView({
   selectedId,
   center,
   searchCenter,
+  routePolyline,
   onSelectStation,
   onMoveEnd,
 }: MapViewProps) {
@@ -45,14 +47,26 @@ export function MapView({
 
   const flyTarget = searchCenter ?? center;
 
+  const routeGeoJson =
+    routePolyline && routePolyline.length > 1
+      ? {
+          type: "Feature" as const,
+          properties: {},
+          geometry: {
+            type: "LineString" as const,
+            coordinates: routePolyline.map((p) => [p.lng, p.lat]),
+          },
+        }
+      : null;
+
   return (
     <Map
-      key={`${flyTarget.lat.toFixed(4)}-${flyTarget.lng.toFixed(4)}`}
+      key={`${flyTarget.lat.toFixed(4)}-${flyTarget.lng.toFixed(4)}-${routePolyline?.length ?? 0}`}
       mapboxAccessToken={token}
       initialViewState={{
         longitude: flyTarget.lng,
         latitude: flyTarget.lat,
-        zoom: 10,
+        zoom: routePolyline ? 8 : 10,
       }}
       onMoveEnd={(event) =>
         onMoveEnd?.({
@@ -65,9 +79,25 @@ export function MapView({
       attributionControl={false}
     >
       <NavigationControl position="bottom-right" />
+
+      {routeGeoJson && (
+        <Source id="route" type="geojson" data={routeGeoJson}>
+          <Layer
+            id="route-line"
+            type="line"
+            paint={{
+              "line-color": "#0284c7",
+              "line-width": 4,
+              "line-opacity": 0.75,
+            }}
+          />
+        </Source>
+      )}
+
       {stations.map((station) => {
         const isSelected = station.id === selectedId;
         const color = CLASSIFICATION_COLORS[station.classification];
+        const isFeatured = station.is_premium || station.is_sponsored;
 
         return (
           <Marker
@@ -89,7 +119,9 @@ export function MapView({
               }}
             >
               <span
-                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow-md"
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold text-white shadow-md ${
+                  isFeatured ? "border-amber-300 ring-2 ring-amber-400/60" : "border-white"
+                }`}
                 style={{ backgroundColor: color }}
               >
                 E0

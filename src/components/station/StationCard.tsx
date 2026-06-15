@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { StationWithMeta } from "@/lib/types/station";
 import { ClassificationBadge } from "./ClassificationBadge";
+import { PremiumBadge } from "./PremiumBadge";
 import { VerificationBadge } from "./VerificationBadge";
 
 export function StationCard({
@@ -38,9 +39,16 @@ export function StationCard({
       <div className="mt-3 flex flex-wrap gap-2">
         <ClassificationBadge classification={station.classification} />
         <VerificationBadge label={station.verification_label} />
+        <PremiumBadge
+          isPremium={station.is_premium}
+          isSponsored={station.is_sponsored}
+        />
       </div>
       <p className="mt-2 text-sm text-zinc-600">
         {station.fuel_type} · {station.ethanol_percent}% ethanol
+        {station.distance_from_route_miles != null && (
+          <> · {station.distance_from_route_miles.toFixed(1)} mi from route</>
+        )}
       </p>
       <Link
         href={`/station/${station.id}`}

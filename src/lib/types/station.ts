@@ -33,6 +33,9 @@ export interface Station {
   ethanol_percent: number;
   phone: string | null;
   hours: StationHours | null;
+  is_premium: boolean;
+  is_sponsored: boolean;
+  submitted_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +58,7 @@ export interface StationWithMeta extends Station {
   last_verification: LastVerification | null;
   verification_label: VerificationLabel;
   distance_miles?: number;
+  distance_from_route_miles?: number;
 }
 
 export interface StationsListResponse {

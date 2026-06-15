@@ -35,6 +35,9 @@ export function enrichStation(
 
   const enriched: StationWithMeta = {
     ...station,
+    is_premium: station.is_premium ?? false,
+    is_sponsored: station.is_sponsored ?? false,
+    submitted_by: station.submitted_by ?? null,
     last_verification: lastVerification,
     verification_label: getVerificationLabel(
       latestAvailable
@@ -83,6 +86,9 @@ export const MOCK_STATIONS: StationWithMeta[] = [
     ethanol_percent: 0,
     phone: "+1-410-263-9266",
     hours: { mon: "6:00-20:00", sun: "7:00-19:00" },
+    is_premium: true,
+    is_sponsored: false,
+    submitted_by: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     last_verification: {
@@ -106,6 +112,9 @@ export const MOCK_STATIONS: StationWithMeta[] = [
     ethanol_percent: 0,
     phone: "+1-410-266-1234",
     hours: { mon: "0:00-24:00" },
+    is_premium: false,
+    is_sponsored: true,
+    submitted_by: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     last_verification: {
@@ -129,6 +138,9 @@ export const MOCK_STATIONS: StationWithMeta[] = [
     ethanol_percent: 0,
     phone: "+1-704-664-2628",
     hours: { mon: "7:00-19:00" },
+    is_premium: false,
+    is_sponsored: false,
+    submitted_by: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     last_verification: null,

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AdSlot } from "@/components/ads/AdSlot";
 import { MapView } from "@/components/map/MapView";
+import { ClassificationFilterChips } from "@/components/search/ClassificationFilterChips";
+import { RouteSearchPanel } from "@/components/search/RouteSearchPanel";
 import {
   SearchBar,
   type GeocodeSuggestion,
@@ -10,6 +13,7 @@ import {
 import { StationBottomSheet } from "@/components/station/StationBottomSheet";
 import { StationCard } from "@/components/station/StationCard";
 import { MOCK_STATIONS } from "@/lib/data/stations";
+import { cacheStations, getCachedStations } from "@/lib/offline/station-cache";
 import type { StationWithMeta } from "@/lib/types/station";
 import { haversineMiles } from "@/lib/utils/geo";
 
@@ -32,11 +36,16 @@ export function HomeMapPage() {
   );
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [searchCenter, setSearchCenter] = useState(DEFAULT_CENTER);
+  const [routePolyline, setRoutePolyline] = useState<
+    { lat: number; lng: number }[] | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingMockData, setUsingMockData] = useState(true);
+  const [routeMode, setRouteMode] = useState(false);
 
   const mapMovedFromSearch =
+    !routeMode &&
     haversineMiles(
       mapCenter.lat,
       mapCenter.lng,
@@ -44,13 +53,36 @@ export function HomeMapPage() {
       searchCenter.lng
     ) > SEARCH_AREA_THRESHOLD_MILES;
 
+  const persistCache = useCallback(
+    (results: StationWithMeta[], center: { lat: number; lng: number }) => {
+      cacheStations({
+        stations: results,
+        cachedAt: Date.now(),
+        center,
+      });
+    },
+    []
+  );
+
   const fetchStations = useCallback(
     async (
       nextSearchCenter = searchCenter,
       searchFilters = filters
     ) => {
+      if (!navigator.onLine) {
+        const cached = getCachedStations();
+        if (cached?.stations?.length) {
+          setStations(cached.stations as StationWithMeta[]);
+          setUsingMockData(false);
+          setError("Offline — showing cached stations");
+        }
+        return;
+      }
+
       setLoading(true);
       setError(null);
+      setRouteMode(false);
+      setRoutePolyline(null);
 
       const params = new URLSearchParams({
         lat: String(nextSearchCenter.lat),
@@ -78,6 +110,7 @@ export function HomeMapPage() {
         if (results.length > 0) {
           setStations(results);
           setUsingMockData(false);
+          persistCache(results, nextSearchCenter);
         } else if (
           searchFilters.q ||
           searchFilters.zip ||
@@ -94,22 +127,44 @@ export function HomeMapPage() {
         setSearchCenter(nextSearchCenter);
         setMapCenter(nextSearchCenter);
       } catch (fetchError) {
-        setStations(MOCK_STATIONS);
-        setUsingMockData(true);
-        setError(
-          fetchError instanceof Error
-            ? fetchError.message
-            : "Using demo data — connect Supabase to load live stations"
-        );
+        const cached = getCachedStations();
+        if (cached?.stations?.length) {
+          setStations(cached.stations as StationWithMeta[]);
+          setUsingMockData(false);
+          setError("Network error — showing cached stations");
+        } else {
+          setStations(MOCK_STATIONS);
+          setUsingMockData(true);
+          setError(
+            fetchError instanceof Error
+              ? fetchError.message
+              : "Using demo data — connect Supabase to load live stations"
+          );
+        }
       } finally {
         setLoading(false);
       }
     },
-    [filters, searchCenter]
+    [filters, searchCenter, persistCache]
   );
 
   useEffect(() => {
-    fetchStations(DEFAULT_CENTER, EMPTY_FILTERS);
+    if (!navigator.geolocation) {
+      fetchStations(DEFAULT_CENTER, EMPTY_FILTERS);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const center = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        fetchStations(center, EMPTY_FILTERS);
+      },
+      () => fetchStations(DEFAULT_CENTER, EMPTY_FILTERS),
+      { timeout: 8000, maximumAge: 60000 }
+    );
     // Initial load only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -145,8 +200,36 @@ export function HomeMapPage() {
     });
   }
 
-  function handleSearchThisArea() {
-    fetchStations(mapCenter, filters);
+  function handleClassificationChange(
+    classification: SearchFilters["classification"]
+  ) {
+    const nextFilters = { ...filters, classification };
+    setFilters(nextFilters);
+    fetchStations(searchCenter, nextFilters);
+  }
+
+  function handleRouteResults(
+    results: StationWithMeta[],
+    route: { lat: number; lng: number }[]
+  ) {
+    setStations(results);
+    setRoutePolyline(route);
+    setRouteMode(true);
+    setUsingMockData(false);
+    setSearchCenter({
+      lat: route[0]?.lat ?? searchCenter.lat,
+      lng: route[0]?.lng ?? searchCenter.lng,
+    });
+    if (route[0]) {
+      setMapCenter({ lat: route[0].lat, lng: route[0].lng });
+    }
+    persistCache(results, searchCenter);
+  }
+
+  function clearRoute() {
+    setRoutePolyline(null);
+    setRouteMode(false);
+    fetchStations(searchCenter, filters);
   }
 
   return (
@@ -158,6 +241,20 @@ export function HomeMapPage() {
         onUseLocation={handleUseLocation}
         onSelectLocation={handleSelectLocation}
         loading={loading}
+        classificationChips={
+          <ClassificationFilterChips
+            value={filters.classification}
+            onChange={handleClassificationChange}
+          />
+        }
+        routeSearch={
+          <RouteSearchPanel
+            classification={filters.classification}
+            loading={loading}
+            onResults={handleRouteResults}
+            onClear={clearRoute}
+          />
+        }
       />
 
       <div className="absolute inset-0 top-0 flex flex-col">
@@ -167,19 +264,32 @@ export function HomeMapPage() {
             selectedId={selectedStation?.id ?? null}
             center={mapCenter}
             searchCenter={searchCenter}
+            routePolyline={routePolyline}
             onSelectStation={setSelectedStation}
             onMoveEnd={setMapCenter}
           />
 
           {mapMovedFromSearch && (
-            <div className="absolute inset-x-0 top-28 z-10 flex justify-center px-3">
+            <div className="absolute inset-x-0 top-36 z-10 flex justify-center px-3">
               <button
                 type="button"
-                onClick={handleSearchThisArea}
+                onClick={() => fetchStations(mapCenter, filters)}
                 disabled={loading}
                 className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-50"
               >
                 Search this area
+              </button>
+            </div>
+          )}
+
+          {routeMode && (
+            <div className="absolute inset-x-0 top-36 z-10 flex justify-center px-3">
+              <button
+                type="button"
+                onClick={clearRoute}
+                className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-sky-700"
+              >
+                Clear route search
               </button>
             </div>
           )}
@@ -188,7 +298,8 @@ export function HomeMapPage() {
         <div className="border-t border-zinc-200 bg-zinc-50 p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-zinc-800">
-              {stations.length} station{stations.length === 1 ? "" : "s"} nearby
+              {routeMode ? "Along route" : "Nearby"}: {stations.length} station
+              {stations.length === 1 ? "" : "s"}
             </p>
             {usingMockData && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
@@ -201,7 +312,8 @@ export function HomeMapPage() {
               {error}
             </p>
           )}
-          <div className="grid gap-2 max-h-[32vh] overflow-y-auto">
+          <AdSlot placement="list" />
+          <div className="mt-2 grid gap-2 max-h-[32vh] overflow-y-auto">
             {stations.map((station) => (
               <StationCard
                 key={station.id}
@@ -210,6 +322,9 @@ export function HomeMapPage() {
                 onSelect={() => setSelectedStation(station)}
               />
             ))}
+          </div>
+          <div className="mt-3">
+            <AdSlot placement="footer" />
           </div>
         </div>
       </div>
