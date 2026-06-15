@@ -1,0 +1,2 @@
+name,address,city,state,lat,lng,zip,country,classification,fuel_type,ethanol_percent,phone,external_id,notes
+Example Marina Fuel Dock,100 Harbor Way,Annapolis,MD,38.9784,-76.4922,21401,US,boat,E0 Gasoline,0,410-555-0100,example-001,At the fuel dock

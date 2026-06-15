@@ -1,3 +1,4 @@
+import { getBadgesForPoints } from "@/lib/gamification/badges";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
@@ -22,10 +23,13 @@ export async function GET() {
     .eq("id", user.id)
     .maybeSingle();
 
+  const points = profile?.contributor_points ?? 0;
+
   return NextResponse.json({
     profile: {
-      contributor_points: profile?.contributor_points ?? 0,
+      contributor_points: points,
       display_name: profile?.display_name ?? user.email?.split("@")[0] ?? "User",
+      badges: getBadgesForPoints(points).map((b) => b.id),
     },
   });
 }

@@ -1,3 +1,4 @@
+import { dispatchFuelAlerts } from "@/lib/alerts/dispatch";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import type { VerificationStatus } from "@/lib/types/station";
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
   const { data: station, error: stationError } = await supabase
     .from("stations")
-    .select("id")
+    .select("id, name, lat, lng")
     .eq("id", stationId)
     .maybeSingle();
 
@@ -79,6 +80,18 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (status === "available" || status === "unavailable") {
+    await dispatchFuelAlerts(
+      {
+        stationId: station.id,
+        stationName: station.name,
+        alertType: status,
+        target: { lat: station.lat, lng: station.lng },
+      },
+      user.id
+    );
   }
 
   return NextResponse.json({ verification }, { status: 201 });

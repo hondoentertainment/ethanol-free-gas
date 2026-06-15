@@ -54,6 +54,23 @@ export function LoginForm() {
     }
   }
 
+  async function signInWithApple() {
+    if (!supabaseReady) return;
+    setLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+      },
+    });
+
+    if (error) {
+      setLoading(false);
+      setMessage(error.message);
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10">
       <div>
@@ -99,6 +116,15 @@ export function LoginForm() {
           className="w-full rounded-xl border border-zinc-200 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
         >
           Continue with Google
+        </button>
+
+        <button
+          type="button"
+          onClick={signInWithApple}
+          disabled={loading}
+          className="mt-2 w-full rounded-xl border border-zinc-200 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          Continue with Apple
         </button>
 
         {message && (

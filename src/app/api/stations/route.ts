@@ -1,3 +1,4 @@
+import { dispatchFuelAlerts } from "@/lib/alerts/dispatch";
 import {
   parseClassificationFromRequest,
   queryStations,
@@ -148,6 +149,16 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await dispatchFuelAlerts(
+    {
+      stationId: station.id,
+      stationName: station.name,
+      alertType: "new_station",
+      target: { lat: station.lat, lng: station.lng },
+    },
+    user.id
+  );
 
   return NextResponse.json({ station }, { status: 201 });
 }

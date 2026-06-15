@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "import:pure-gas": "node scripts/import-pure-gas.mjs"
+    "import:pure-gas": "node scripts/import-pure-gas.mjs",
+    "import:supabase": "node scripts/bulk-import-supabase.mjs",
+    "import:csv": "node scripts/bulk-import-csv.mjs",
+    "import:all": "node scripts/import-pure-gas.mjs && node scripts/bulk-import-supabase.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
