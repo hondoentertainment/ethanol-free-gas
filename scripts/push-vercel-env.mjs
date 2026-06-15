@@ -33,13 +33,14 @@ function listProductionEnv() {
 }
 
 function addEnv(name, value) {
+  const trimmed = value.trim();
   const result = spawnSync(
     "npx",
-    ["vercel", "env", "add", name, "production"],
+    ["vercel", "env", "add", name, "production", "--yes"],
     {
-      input: `${value}\n`,
+      input: trimmed,
       encoding: "utf-8",
-      shell: true,
+      shell: process.platform === "win32",
     }
   );
   if (result.status !== 0) {
