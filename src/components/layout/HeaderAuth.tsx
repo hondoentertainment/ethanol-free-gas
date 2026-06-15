@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useProfile } from "@/hooks/useProfile";
 import { useUser } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
 
 export function HeaderAuth() {
   const { user, loading } = useUser();
+  const { points } = useProfile();
   const router = useRouter();
 
   async function signOut() {
@@ -28,6 +30,11 @@ export function HeaderAuth() {
 
     return (
       <div className="flex shrink-0 items-center gap-2">
+        {points != null && points > 0 && (
+          <span className="hidden rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 sm:inline">
+            {points} pts
+          </span>
+        )}
         <span className="hidden max-w-[8rem] truncate text-sm text-zinc-600 sm:inline">
           {label}
         </span>

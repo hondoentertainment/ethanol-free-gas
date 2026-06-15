@@ -1,6 +1,7 @@
 "use client";
 
 import type { StationWithMeta } from "@/lib/types/station";
+import { AdSlot } from "@/components/ads/AdSlot";
 import { StationCard } from "@/components/station/StationCard";
 
 export function StationListDrawer({
@@ -49,13 +50,15 @@ export function StationListDrawer({
               No stations match your filters.
             </p>
           ) : (
-            stations.map((station) => (
-              <StationCard
-                key={station.id}
-                station={station}
-                selected={selectedId === station.id}
-                onSelect={() => onSelectStation(station)}
-              />
+            stations.map((station, index) => (
+              <div key={station.id}>
+                <StationCard
+                  station={station}
+                  selected={selectedId === station.id}
+                  onSelect={() => onSelectStation(station)}
+                />
+                {index === 2 && <div className="mt-2"><AdSlot placement="list" /></div>}
+              </div>
             ))
           )}
         </div>

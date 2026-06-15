@@ -66,8 +66,25 @@ Without Supabase configured, the app runs in **demo mode** with mock stations.
 
 1. Push the repo to GitHub
 2. Import the project in [Vercel](https://vercel.com/new)
-3. Add the same environment variables from `.env.local`
-4. Deploy
+3. Add environment variables from `.env.local`
+4. In Supabase, run migrations in order:
+   - `001_initial_schema.sql`
+   - `002_premium_contributions_api.sql`
+   - `003_station_photos_storage.sql`
+5. Run `seed.sql` and optionally `seed_regional_stations.sql`
+6. Deploy
+
+## API licensing
+
+Licensed partners can query `GET /api/v1/stations` with an `X-API-Key` header. Set `API_LICENSE_KEYS` (comma-separated) in env.
+
+## Contributor points
+
+| Action | Points |
+|--------|--------|
+| Verify a station | 5 |
+| Upload a photo | 10 |
+| Add a station | 25 |
 
 ## Project structure
 

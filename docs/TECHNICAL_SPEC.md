@@ -284,21 +284,24 @@ src/proxy.ts (Supabase session refresh)
 
 ### Sprint 4 — Route Search (Phase 2 MVP)
 
-- Route input (origin + destination)
-- Stations along polyline corridor
-- RV/boat trip use cases
+- [x] Route input (origin + destination)
+- [x] Stations along polyline corridor (`GET /api/route/stations`)
+- [x] Route polyline on map
+- [x] RV/boat trip use cases
 
 ### Sprint 5 — Community + Photos
 
-- Add/edit station flows
-- Supabase Storage for photos
-- Contributor points (basic)
+- [x] Add station flow (`POST /api/stations`, `/station/add`)
+- [x] Edit station flow (`PATCH /api/stations/[id]`, `/station/[id]/edit`)
+- [x] Supabase Storage for photos (`POST /api/stations/[id]/photos`)
+- [x] Contributor points (profiles + triggers + header display)
 
 ### Sprint 6 — Monetization + PWA
 
-- Ad slot components
-- Premium listing flags in DB
-- Service worker + offline cache
+- [x] Ad slot components (list + footer)
+- [x] Premium listing flags in DB (`002_premium_contributions_api.sql`)
+- [x] Service worker + offline cache (localStorage + `/sw.js`)
+- [x] Licensed API (`GET /api/v1/stations`)
 
 ---
 
