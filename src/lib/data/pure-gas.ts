@@ -88,6 +88,8 @@ export function pureGasRowsToStations(
       created_at: now,
       updated_at: now,
       last_verification: null,
+      latest_report: null,
+      listing_status: "unknown",
       verification_label: getVerificationLabel(null),
     };
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { StationWithMeta } from "@/lib/types/station";
 import { ClassificationBadge } from "./ClassificationBadge";
+import { ListingStatusBadge } from "./ListingStatus";
 import { PremiumBadge } from "./PremiumBadge";
 import { VerificationBadge } from "./VerificationBadge";
 
@@ -38,6 +39,7 @@ export function StationCard({
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <ClassificationBadge classification={station.classification} />
+        <ListingStatusBadge status={station.listing_status ?? "unknown"} />
         <VerificationBadge
           label={station.verification_label}
           stale={station.verification_stale}

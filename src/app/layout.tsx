@@ -7,7 +7,11 @@ import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { InstallPrompt } from "@/components/layout/InstallPrompt";
 import { OnboardingModal } from "@/components/layout/OnboardingModal";
 import { ServiceWorkerRegistration } from "@/components/layout/ServiceWorkerRegistration";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
+
+const siteUrl = getSiteUrl();
+const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
 
 export const metadata: Metadata = {
   title: {
@@ -17,12 +21,12 @@ export const metadata: Metadata = {
   description:
     "Find ethanol-free (E0) gasoline stations for boats, classic cars, and small engines across the US and Canada.",
   manifest: "/manifest.webmanifest",
-  metadataBase: new URL("https://ethanol-free-gas.vercel.app"),
+  metadataBase: new URL(siteUrl),
   openGraph: {
     title: "Ethanol-Free Fuel Finder",
     description:
       "Map of ethanol-free (E0) gas stations across North America.",
-    url: "https://ethanol-free-gas.vercel.app",
+    url: siteUrl,
     siteName: "E0 Finder",
     locale: "en_US",
     type: "website",
@@ -41,6 +45,9 @@ export const metadata: Metadata = {
     icon: "/icons/icon.svg",
     apple: "/icons/icon.svg",
   },
+  ...(googleVerification
+    ? { verification: { google: googleVerification } }
+    : {}),
 };
 
 export default function RootLayout({

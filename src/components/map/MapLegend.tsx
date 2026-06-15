@@ -29,6 +29,20 @@ export function MapLegend() {
         </li>
         <li className="flex items-center gap-2">
           <span
+            className="h-3 w-3 rounded-full bg-[#dc2626] ring-2 ring-white"
+            aria-hidden="true"
+          />
+          Reported: no E0
+        </li>
+        <li className="flex items-center gap-2">
+          <span
+            className="h-3 w-3 rounded-full bg-[#71717a] ring-2 ring-white"
+            aria-hidden="true"
+          />
+          Reported: closed
+        </li>
+        <li className="flex items-center gap-2">
+          <span
             className="h-3 w-3 rounded-full bg-[#ea580c] ring-2 ring-white"
             aria-hidden="true"
           />

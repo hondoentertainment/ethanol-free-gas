@@ -36,6 +36,7 @@ function stationsToGeoJson(stations: StationWithMeta[]) {
         is_premium: station.is_premium,
         is_sponsored: station.is_sponsored,
         verification_stale: station.verification_stale ?? false,
+        listing_status: station.listing_status ?? "unknown",
       },
       geometry: {
         type: "Point" as const,
@@ -234,6 +235,12 @@ export function MapView({
               "#f59e0b",
               ["get", "is_sponsored"],
               "#f59e0b",
+              ["==", ["get", "listing_status"], "closed"],
+              "#71717a",
+              ["==", ["get", "listing_status"], "no_e0"],
+              "#dc2626",
+              ["==", ["get", "listing_status"], "needs_review"],
+              "#a1a1aa",
               ["==", ["get", "verification_stale"], true],
               "#ea580c",
               [

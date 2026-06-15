@@ -3,7 +3,7 @@ import type { StationWithMeta } from "@/lib/types/station";
 const now = new Date().toISOString();
 
 /** Full demo dataset mirroring supabase seed + regional seed files */
-export const ALL_DEMO_STATIONS: StationWithMeta[] = [
+const RAW_DEMO_STATIONS = [
   {
     id: "demo-annapolis-marina",
     name: "Annapolis Harbor Marina Fuel Dock",
@@ -381,4 +381,12 @@ export const ALL_DEMO_STATIONS: StationWithMeta[] = [
     last_verification: null,
     verification_label: "unverified",
   },
-];
+] satisfies Omit<StationWithMeta, "listing_status" | "latest_report">[];
+
+export const ALL_DEMO_STATIONS: StationWithMeta[] = RAW_DEMO_STATIONS.map(
+  (station) => ({
+    ...station,
+    listing_status: "unknown" as const,
+    latest_report: station.last_verification,
+  })
+);

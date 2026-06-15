@@ -23,6 +23,7 @@ import {
   parseRouteParams,
   type RouteEndpoints,
 } from "@/lib/utils/route-share";
+import { isNegativeListingStatus } from "@/lib/utils/listing-status";
 import { sortStationsForDisplay } from "@/lib/utils/route";
 
 const EMPTY_FILTERS: SearchFilters = {
@@ -40,11 +41,17 @@ function applyClientFilters(
   stations: StationWithMeta[],
   filters: SearchFilters,
   nearbyOnly: boolean,
+  hideInactive: boolean,
   userLocation: { lat: number; lng: number } | null
 ): StationWithMeta[] {
   let results = [...stations];
   const q = filters.q.trim().toLowerCase();
 
+  if (hideInactive) {
+    results = results.filter(
+      (s) => !isNegativeListingStatus(s.listing_status ?? "unknown")
+    );
+  }
   if (filters.classification) {
     results = results.filter((s) => s.classification === filters.classification);
   }
@@ -109,6 +116,7 @@ export function HomeMapPage() {
   const [dataSource, setDataSource] = useState<"demo" | "pure-gas" | "supabase">("demo");
   const [routeMode, setRouteMode] = useState(false);
   const [nearbyOnly, setNearbyOnly] = useState(false);
+  const [hideInactive, setHideInactive] = useState(true);
   const [listOpen, setListOpen] = useState(false);
   const [showAllMap, setShowAllMap] = useState(false);
   const [fitMap, setFitMap] = useState(true);
@@ -122,9 +130,10 @@ export function HomeMapPage() {
       allStations,
       filters,
       nearbyOnly,
+      hideInactive,
       userLocation
     );
-  }, [allStations, filters, nearbyOnly, userLocation, routeMode]);
+  }, [allStations, filters, nearbyOnly, hideInactive, userLocation, routeMode]);
 
   const loadStations = useCallback(
     async (
@@ -464,6 +473,22 @@ export function HomeMapPage() {
             }`}
           >
             {nearbyOnly ? "Nearby only" : "Filter nearby"}
+          </button>
+        )}
+        {!routeMode && (
+          <button
+            type="button"
+            onClick={() => {
+              setHideInactive((v) => !v);
+              setFitMap(true);
+            }}
+            className={`rounded-full px-4 py-2 text-sm font-medium shadow-lg ring-1 ${
+              hideInactive
+                ? "bg-white text-zinc-800 ring-zinc-200 hover:bg-zinc-50"
+                : "bg-zinc-700 text-white ring-zinc-800"
+            }`}
+          >
+            {hideInactive ? "Show closed / no E0" : "Hiding closed / no E0"}
           </button>
         )}
         <button

@@ -22,6 +22,9 @@ interface LeafletMapViewProps {
 
 const pinColor = (station: StationWithMeta) => {
   if (station.is_premium || station.is_sponsored) return "#f59e0b";
+  if (station.listing_status === "closed") return "#71717a";
+  if (station.listing_status === "no_e0") return "#dc2626";
+  if (station.listing_status === "needs_review") return "#a1a1aa";
   if (station.verification_stale) return "#ea580c";
   if (station.classification === "boat") return "#0284c7";
   if (station.classification === "dual") return "#7c3aed";

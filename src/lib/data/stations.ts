@@ -6,6 +6,7 @@ import type {
   Verification,
 } from "@/lib/types/station";
 import { haversineMiles } from "@/lib/utils/geo";
+import { getListingStatus } from "@/lib/utils/listing-status";
 import { getVerificationLabel } from "@/lib/utils/verification";
 import { isVerificationStale } from "@/lib/utils/verification-stale";
 
@@ -16,23 +17,23 @@ export function enrichStation(
   verifications: Verification[],
   center?: { lat: number; lng: number }
 ): StationWithMeta {
-  const latestAvailable = verifications
-    .filter((v) => v.status === "available")
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )[0];
-
-  const latestAny = verifications.sort(
+  const sorted = [...verifications].sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )[0];
+  );
+
+  const latestAvailable = sorted.find((v) => v.status === "available");
+  const latestReport = sorted[0] ?? null;
 
   const lastVerification: LastVerification | null = latestAvailable
     ? { status: latestAvailable.status, created_at: latestAvailable.created_at }
-    : latestAny
-      ? { status: latestAny.status, created_at: latestAny.created_at }
-      : null;
+    : null;
+
+  const latestReportMeta: LastVerification | null = latestReport
+    ? { status: latestReport.status, created_at: latestReport.created_at }
+    : null;
+
+  const listingStatus = getListingStatus(latestReportMeta);
 
   const enriched: StationWithMeta = {
     ...station,
@@ -40,15 +41,12 @@ export function enrichStation(
     is_sponsored: station.is_sponsored ?? false,
     submitted_by: station.submitted_by ?? null,
     last_verification: lastVerification,
-    verification_label: getVerificationLabel(
-      latestAvailable
-        ? {
-            status: latestAvailable.status,
-            created_at: latestAvailable.created_at,
-          }
-        : null
-    ),
-    verification_stale: isVerificationStale(lastVerification),
+    latest_report: latestReportMeta,
+    listing_status: listingStatus,
+    verification_label: getVerificationLabel(lastVerification),
+    verification_stale:
+      listingStatus === "active" &&
+      isVerificationStale(lastVerification),
   };
 
   if (center) {

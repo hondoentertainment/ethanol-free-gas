@@ -3,6 +3,7 @@
 import type { StationWithMeta } from "@/lib/types/station";
 import { ClassificationBadge } from "./ClassificationBadge";
 import { DirectionsLinks } from "./DirectionsLinks";
+import { ListingStatusBadge, ListingStatusBanner } from "./ListingStatus";
 import { PremiumBadge } from "./PremiumBadge";
 import { VerificationBadge } from "./VerificationBadge";
 import { VerificationForm } from "./VerificationForm";
@@ -43,6 +44,7 @@ export function StationBottomSheet({
 
         <div className="mt-3 flex flex-wrap gap-2">
           <ClassificationBadge classification={station.classification} />
+          <ListingStatusBadge status={station.listing_status} />
           <VerificationBadge
             label={station.verification_label}
             stale={station.verification_stale}
@@ -50,6 +52,13 @@ export function StationBottomSheet({
           <PremiumBadge
             isPremium={station.is_premium}
             isSponsored={station.is_sponsored}
+          />
+        </div>
+
+        <div className="mt-3">
+          <ListingStatusBanner
+            status={station.listing_status}
+            reportedAt={station.latest_report?.created_at}
           />
         </div>
 
@@ -93,7 +102,11 @@ export function StationBottomSheet({
         </div>
 
         <div className="mt-4">
-          <VerificationForm stationId={station.id} onVerified={onVerified} />
+          <VerificationForm
+            stationId={station.id}
+            stationName={station.name}
+            onVerified={onVerified}
+          />
         </div>
       </div>
     </div>

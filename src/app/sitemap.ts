@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 import { getStateStationStats } from "@/lib/data/state-stats";
-
-const BASE = "https://ethanol-free-gas.vercel.app";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const BASE = getSiteUrl();
   const stats = await getStateStationStats();
 
   const stateUrls: MetadataRoute.Sitemap = stats.map((row) => ({

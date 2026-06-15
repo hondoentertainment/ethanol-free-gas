@@ -1,6 +1,17 @@
 export type StationClassification = "car" | "boat" | "dual";
 
-export type VerificationStatus = "available" | "unavailable" | "incorrect";
+export type VerificationStatus =
+  | "available"
+  | "unavailable"
+  | "closed"
+  | "incorrect";
+
+export type ListingStatus =
+  | "active"
+  | "no_e0"
+  | "closed"
+  | "needs_review"
+  | "unknown";
 
 export type VerificationLabel =
   | "verified_today"
@@ -56,6 +67,8 @@ export interface LastVerification {
 
 export interface StationWithMeta extends Station {
   last_verification: LastVerification | null;
+  latest_report: LastVerification | null;
+  listing_status: ListingStatus;
   verification_label: VerificationLabel;
   verification_stale?: boolean;
   distance_miles?: number;

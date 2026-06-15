@@ -3,11 +3,14 @@ import { sendEmail } from "@/lib/email/send";
 import { sendWebPush } from "@/lib/push/web-push";
 import { haversineMiles } from "@/lib/utils/geo";
 import type { AlertType } from "@/lib/types/alerts";
+import type { VerificationStatus } from "@/lib/types/station";
+import { getSiteUrl } from "@/lib/site-url";
 
 export interface NotifyParams {
   stationId: string;
   stationName: string;
   alertType: AlertType;
+  verificationStatus?: VerificationStatus;
   target: { lat: number; lng: number };
 }
 
@@ -56,7 +59,13 @@ export async function dispatchFuelAlerts(
 
   if (error || !subscriptions?.length) return 0;
 
-  const copy = ALERT_COPY[params.alertType](params.stationName);
+  const copy =
+    params.verificationStatus === "closed"
+      ? {
+          title: "Station reported closed",
+          body: `${params.stationName} was reported as closed or no longer at this location.`,
+        }
+      : ALERT_COPY[params.alertType](params.stationName);
   const stationUrl = `/station/${params.stationId}`;
   const rows: {
     user_id: string;
@@ -130,7 +139,7 @@ export async function dispatchFuelAlerts(
       sendEmail({
         to: sub.email!,
         subject: copy.title,
-        html: `<p>${copy.body}</p><p><a href="https://ethanol-free-gas.vercel.app${stationUrl}">View station</a></p>`,
+        html: `<p>${copy.body}</p><p><a href="${getSiteUrl()}${stationUrl}">View station</a></p>`,
       })
     )
   );

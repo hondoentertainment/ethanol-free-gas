@@ -9,10 +9,12 @@ import { PremiumBadge } from "@/components/station/PremiumBadge";
 import { PhotoGallery, PhotoUpload } from "@/components/station/StationPhotos";
 import { StationRatings } from "@/components/station/StationRatings";
 import { VerificationBadge } from "@/components/station/VerificationBadge";
+import { ListingStatusBadge, ListingStatusBanner } from "@/components/station/ListingStatus";
 import { ShareStationButton } from "@/components/station/ShareStationButton";
 import { VerificationForm } from "@/components/station/VerificationForm";
 import { MOCK_STATIONS } from "@/lib/data/stations";
 import type { StationWithMeta, Verification } from "@/lib/types/station";
+import { VERIFICATION_STATUS_LABELS } from "@/lib/utils/listing-status";
 
 interface StationPhoto {
   id: string;
@@ -83,6 +85,7 @@ export function StationDetailClient({ id }: { id: string }) {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <ClassificationBadge classification={station.classification} />
+          <ListingStatusBadge status={station.listing_status ?? "unknown"} />
           <VerificationBadge
             label={station.verification_label}
             stale={station.verification_stale}
@@ -90,6 +93,13 @@ export function StationDetailClient({ id }: { id: string }) {
           <PremiumBadge
             isPremium={station.is_premium}
             isSponsored={station.is_sponsored}
+          />
+        </div>
+
+        <div className="mt-4">
+          <ListingStatusBanner
+            status={station.listing_status ?? "unknown"}
+            reportedAt={station.latest_report?.created_at}
           />
         </div>
 
@@ -135,7 +145,11 @@ export function StationDetailClient({ id }: { id: string }) {
         <PhotoUpload stationId={station.id} onUploaded={loadStation} />
 
         <div className="mt-6">
-          <VerificationForm stationId={station.id} onVerified={loadStation} />
+          <VerificationForm
+            stationId={station.id}
+            stationName={station.name}
+            onVerified={loadStation}
+          />
         </div>
 
         <StationRatings stationId={station.id} />
@@ -151,8 +165,8 @@ export function StationDetailClient({ id }: { id: string }) {
                   key={verification.id}
                   className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2 text-sm"
                 >
-                  <span className="font-medium capitalize text-zinc-800">
-                    {verification.status.replace("_", " ")}
+                  <span className="font-medium text-zinc-800">
+                    {VERIFICATION_STATUS_LABELS[verification.status]}
                   </span>
                   <span className="text-zinc-500">
                     {" "}
