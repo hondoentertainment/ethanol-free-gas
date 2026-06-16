@@ -16,7 +16,7 @@
  *   https://supabase.com/docs/guides/auth/social-login/auth-apple
  */
 
-import { loadEnv, requireEnv } from "./lib/env.mjs";
+import { loadEnv } from "./lib/env.mjs";
 
 loadEnv();
 

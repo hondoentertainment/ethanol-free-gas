@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getSiteUrl } from "@/lib/site-url";
 
 export const metadata = {
@@ -114,13 +115,13 @@ export default function DevelopersPage() {
 
       <p className="mt-6 text-sm text-zinc-600">
         Request an API key via the{" "}
-        <a href="/premium" className="font-medium text-sky-700 hover:text-sky-800">
+        <Link href="/premium" className="font-medium text-sky-700 hover:text-sky-800">
           premium / partner inquiry form
-        </a>
+        </Link>
         , or read the{" "}
-        <a href="/docs/api-partners" className="font-medium text-sky-700 hover:text-sky-800">
+        <Link href="/docs/api-partners" className="font-medium text-sky-700 hover:text-sky-800">
           partner documentation
-        </a>
+        </Link>
         . Keys are provisioned as <code>API_LICENSE_KEYS</code> on the deployment.
       </p>
     </div>

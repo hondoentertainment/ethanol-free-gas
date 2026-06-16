@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "e0-onboarding-done";
@@ -30,9 +31,9 @@ export function OnboardingModal() {
           <li>Use <strong>Route search</strong> to find E0 along your trip</li>
         </ul>
         <p className="mt-4 text-sm text-zinc-600">
-          <a href="/docs" className="font-medium text-sky-700 hover:text-sky-800">
+          <Link href="/docs" className="font-medium text-sky-700 hover:text-sky-800">
             Read the full help center →
-          </a>
+          </Link>
         </p>
         <button
           type="button"
