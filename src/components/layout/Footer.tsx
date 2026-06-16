@@ -6,6 +6,7 @@ export function Footer() {
     <footer className="border-t border-zinc-200 bg-white px-4 py-4">
       <div className="mx-auto flex max-w-4xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <nav className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-zinc-600">
+          <Link href="/docs" className="hover:text-zinc-900">Help</Link>
           <Link href="/guides" className="hover:text-zinc-900">Guides</Link>
           <Link href="/about" className="hover:text-zinc-900">About</Link>
           <Link href="/states" className="hover:text-zinc-900">By state</Link>

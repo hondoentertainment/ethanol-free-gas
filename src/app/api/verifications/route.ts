@@ -80,6 +80,42 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
+    const isClosedEnumError =
+      status === "closed" &&
+      /closed|enum|invalid input value/i.test(error.message);
+
+    if (isClosedEnumError) {
+      const fallbackNotes = [
+        "[no_longer_in_business]",
+        notes?.trim() || "Reported as no longer in business.",
+      ].join(" ");
+
+      const { data: fallback, error: fallbackError } = await supabase
+        .from("verifications")
+        .insert({
+          station_id: stationId,
+          status: "incorrect",
+          notes: fallbackNotes,
+          user_id: user.id,
+        })
+        .select("*")
+        .single();
+
+      if (!fallbackError && fallback) {
+        await dispatchFuelAlerts(
+          {
+            stationId: station.id,
+            stationName: station.name,
+            alertType: "unavailable",
+            verificationStatus: "closed",
+            target: { lat: station.lat, lng: station.lng },
+          },
+          user.id
+        );
+        return NextResponse.json({ verification: fallback }, { status: 201 });
+      }
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

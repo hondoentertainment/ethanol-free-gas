@@ -1,4 +1,5 @@
 import { verifyAdminSecret } from "@/lib/auth/secrets";
+import { fetchVerificationStats } from "@/lib/admin/verification-stats";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Supabase unavailable" }, { status: 503 });
   }
 
-  const [inquiries, imports, usage] = await Promise.all([
+  const [inquiries, imports, usage, verification_stats] = await Promise.all([
     supabase
       .from("premium_inquiries")
       .select("*")
@@ -26,11 +27,13 @@ export async function GET(request: NextRequest) {
     supabase
       .from("api_usage_log")
       .select("id", { count: "exact", head: true }),
+    fetchVerificationStats(supabase),
   ]);
 
   return NextResponse.json({
     inquiries: inquiries.data ?? [],
     import_runs: imports.data ?? [],
     api_calls: usage.count ?? 0,
+    verification_stats,
   });
 }

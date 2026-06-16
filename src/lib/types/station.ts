@@ -63,6 +63,7 @@ export interface Verification {
 export interface LastVerification {
   status: VerificationStatus;
   created_at: string;
+  notes?: string | null;
 }
 
 export interface StationWithMeta extends Station {

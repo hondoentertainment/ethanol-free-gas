@@ -25,11 +25,17 @@ export async function GET() {
 
   const points = profile?.contributor_points ?? 0;
 
+  const { count: verificationCount } = await supabase
+    .from("verifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
   return NextResponse.json({
     profile: {
       contributor_points: points,
       display_name: profile?.display_name ?? user.email?.split("@")[0] ?? "User",
       badges: getBadgesForPoints(points).map((b) => b.id),
+      verification_count: verificationCount ?? 0,
     },
   });
 }
@@ -73,11 +79,17 @@ export async function PATCH(request: NextRequest) {
 
   const points = profile.contributor_points ?? 0;
 
+  const { count: verificationCount } = await supabase
+    .from("verifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
   return NextResponse.json({
     profile: {
       contributor_points: points,
       display_name: profile.display_name,
       badges: getBadgesForPoints(points).map((b) => b.id),
+      verification_count: verificationCount ?? 0,
     },
   });
 }

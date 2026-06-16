@@ -2,6 +2,17 @@
 
 import { useState } from "react";
 
+interface VerificationStats {
+  total_stations: number;
+  verifications_this_week: number;
+  verified_fresh: number;
+  negative_listing: number;
+  never_verified: number;
+  stale_or_unverified: number;
+  verified_percent: number;
+  stale_percent: number;
+}
+
 interface StationRow {
   id: string;
   name: string;
@@ -18,6 +29,7 @@ export function AdminClient() {
     inquiries: Array<Record<string, unknown>>;
     import_runs: Array<Record<string, unknown>>;
     api_calls: number;
+    verification_stats: VerificationStats | null;
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState("");
@@ -227,6 +239,53 @@ export function AdminClient() {
 
       {data && (
         <div className="mt-8 space-y-8">
+          {data.verification_stats && (
+            <section className="rounded-xl border border-zinc-200 p-4">
+              <h2 className="text-lg font-semibold">Data quality</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm">
+                  <p className="text-xs font-medium uppercase text-emerald-800">
+                    Freshly verified
+                  </p>
+                  <p className="text-xl font-semibold text-emerald-950">
+                    {data.verification_stats.verified_percent}%
+                  </p>
+                  <p className="text-xs text-emerald-800">
+                    {data.verification_stats.verified_fresh.toLocaleString()} of{" "}
+                    {data.verification_stats.total_stations.toLocaleString()}{" "}
+                    stations
+                  </p>
+                </div>
+                <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm">
+                  <p className="text-xs font-medium uppercase text-orange-800">
+                    Stale or unverified
+                  </p>
+                  <p className="text-xl font-semibold text-orange-950">
+                    {data.verification_stats.stale_percent}%
+                  </p>
+                  <p className="text-xs text-orange-800">
+                    {data.verification_stats.stale_or_unverified.toLocaleString()}{" "}
+                    need community checks
+                  </p>
+                </div>
+              </div>
+              <ul className="mt-3 space-y-1 text-sm text-zinc-600">
+                <li>
+                  Verifications this week:{" "}
+                  {data.verification_stats.verifications_this_week.toLocaleString()}
+                </li>
+                <li>
+                  Never verified:{" "}
+                  {data.verification_stats.never_verified.toLocaleString()}
+                </li>
+                <li>
+                  Negative reports (closed / no E0 / incorrect):{" "}
+                  {data.verification_stats.negative_listing.toLocaleString()}
+                </li>
+              </ul>
+            </section>
+          )}
+
           <section>
             <h2 className="text-lg font-semibold">Premium inquiries</h2>
             <ul className="mt-3 space-y-2">

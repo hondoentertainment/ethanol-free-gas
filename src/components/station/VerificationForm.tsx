@@ -18,9 +18,20 @@ type ReportOption = {
   title: string;
   description: string;
   tone: "positive" | "warning" | "danger" | "neutral";
+  notesPlaceholder?: string;
 };
 
-const REPORT_OPTIONS: ReportOption[] = [
+const CLOSED_OPTION: ReportOption = {
+  status: "closed",
+  title: "No longer in business",
+  description:
+    "The gas station, marina, or fuel dock has permanently closed or left this location.",
+  tone: "danger",
+  notesPlaceholder:
+    "When did it close? Empty lot, new business, or signage removed?",
+};
+
+const OTHER_REPORT_OPTIONS: ReportOption[] = [
   {
     status: "available",
     title: "Still sells E0",
@@ -30,20 +41,16 @@ const REPORT_OPTIONS: ReportOption[] = [
   {
     status: "unavailable",
     title: "No longer sells E0",
-    description: "The station is open but stopped offering ethanol-free gas.",
+    description: "Still open, but stopped offering ethanol-free gas.",
     tone: "warning",
-  },
-  {
-    status: "closed",
-    title: "Closed or gone",
-    description: "Permanently closed, demolished, or no longer at this address.",
-    tone: "danger",
+    notesPlaceholder: "Which pumps? Did staff say it was temporary?",
   },
   {
     status: "incorrect",
     title: "Wrong listing",
     description: "Duplicate entry, wrong address, or other incorrect details.",
     tone: "neutral",
+    notesPlaceholder: "What is wrong with this listing?",
   },
 ];
 
@@ -129,8 +136,8 @@ export function VerificationForm({
           Help keep listings accurate
         </p>
         <p className="mt-1 text-sm text-amber-900">
-          Sign in to report if {stationName ?? "this station"} still sells
-          ethanol-free fuel, has closed, or has incorrect details.
+          Sign in to report if {stationName ?? "this station"} is no longer in
+          business, stopped selling E0, or has incorrect details.
         </p>
         <Link
           href={`/auth/login?next=${encodeURIComponent(pathname)}`}
@@ -157,7 +164,10 @@ export function VerificationForm({
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             maxLength={500}
-            placeholder="When did you visit? Any pump numbers or staff notes?"
+            placeholder={
+              pending.notesPlaceholder ??
+              "When did you visit? Any helpful details?"
+            }
             className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
           />
         </label>
@@ -190,14 +200,31 @@ export function VerificationForm({
   return (
     <div>
       <p className="text-sm font-semibold text-zinc-900">
-        Is this listing still accurate?
+        Report station status
       </p>
       <p className="mt-1 text-sm text-zinc-600">
-        Tell other drivers and boaters if ethanol-free fuel is still sold here.
+        Let others know if this location is still operating and selling E0.
       </p>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {REPORT_OPTIONS.map((option) => (
+      <button
+        type="button"
+        disabled={submitting}
+        onClick={() => handleOptionClick(CLOSED_OPTION)}
+        className="mt-4 w-full rounded-2xl border border-red-300 bg-red-50 p-4 text-left transition hover:border-red-400 hover:bg-red-100/80 disabled:opacity-50"
+      >
+        <p className="text-sm font-semibold text-red-950">
+          No longer in business
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-red-900/90">
+          {CLOSED_OPTION.description}
+        </p>
+      </button>
+
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        Other updates
+      </p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        {OTHER_REPORT_OPTIONS.map((option) => (
           <button
             key={option.status}
             type="button"

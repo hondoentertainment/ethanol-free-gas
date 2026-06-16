@@ -30,7 +30,11 @@ export function enrichStation(
     : null;
 
   const latestReportMeta: LastVerification | null = latestReport
-    ? { status: latestReport.status, created_at: latestReport.created_at }
+    ? {
+        status: latestReport.status,
+        created_at: latestReport.created_at,
+        notes: latestReport.notes,
+      }
     : null;
 
   const listingStatus = getListingStatus(latestReportMeta);

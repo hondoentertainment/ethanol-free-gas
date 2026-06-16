@@ -11,6 +11,14 @@ export default function GuidesIndexPage() {
     <div className="mx-auto max-w-2xl px-4 py-6">
       <Link href="/" className="text-sm font-medium text-sky-700">← Map</Link>
       <h1 className="mt-4 text-2xl font-semibold text-zinc-900">Guides</h1>
+      <p className="mt-2 text-sm text-zinc-600">
+        Educational articles about ethanol-free fuel. For step-by-step product help,
+        see the{" "}
+        <Link href="/docs" className="font-medium text-sky-700 hover:text-sky-800">
+          help center
+        </Link>
+        .
+      </p>
       <ul className="mt-6 space-y-3">
         {GUIDES.map((guide) => (
           <li key={guide.slug}>

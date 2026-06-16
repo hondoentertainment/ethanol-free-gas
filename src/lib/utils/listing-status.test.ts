@@ -30,6 +30,16 @@ describe("getListingStatus", () => {
     ).toBe("closed");
   });
 
+  it("maps incorrect with business tag to closed", () => {
+    expect(
+      getListingStatus({
+        status: "incorrect",
+        created_at: new Date().toISOString(),
+        notes: "[no_longer_in_business] Empty lot",
+      })
+    ).toBe("closed");
+  });
+
   it("maps incorrect to needs_review", () => {
     expect(
       getListingStatus({

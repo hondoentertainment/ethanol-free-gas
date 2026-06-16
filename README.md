@@ -1,82 +1,80 @@
 # Ethanol-Free Fuel Finder
 
-Mobile-first map for locating ethanol-free (E0) gasoline stations across the US and Canada. Built with Next.js 16, Supabase, and Mapbox.
+Mobile-first map for locating ethanol-free (E0) gasoline stations across the US and Canada.
+
+**Live:** https://ethanol-free-gas.vercel.app
 
 ## Features
 
-- Interactive map with car / boat / dual station classification
-- Search by city, ZIP, or address (Mapbox geocoding autocomplete)
-- “Search this area” when panning the map
-- Station detail pages with directions (Google Maps, Apple Maps, Waze)
-- Crowdsourced fuel availability verification (requires sign-in)
-- Email magic link and Google OAuth via Supabase Auth
+- Interactive map with **car / boat / dual** station classification
+- 17,000+ stations from pure-gas.org + community additions
+- Search by city, ZIP, address, and **along a route**
+- Crowdsourced verification (available, unavailable, closed, incorrect)
+- Fuel alerts (in-app, web push, email)
+- Photos, ratings, contributor points, and leaderboard
+- PWA install + offline station cache
+- Licensed partner API (`/api/v1/stations`)
+- Premium/sponsored listings for station owners
+- State directory, SEO guides, and full help center
 
 ## Quick start
 
-### 1. Install dependencies
-
 ```bash
 npm install
-```
-
-### 2. Configure environment
-
-Copy `.env.example` to `.env.local` and fill in:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon key |
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Yes* | Mapbox public token |
-| `SUPABASE_SERVICE_ROLE_KEY` | No | Admin seeding only |
-
-\* Without Mapbox, the app falls back to a list-only view with demo data.
-
-### 3. Set up Supabase
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. Run `supabase/migrations/001_initial_schema.sql` in the SQL editor
-3. Run `supabase/seed.sql` for sample stations
-4. Enable **Email** and **Google** providers under Authentication → Providers
-5. Add redirect URLs:
-   - `http://localhost:3000/auth/callback`
-   - `https://your-domain.vercel.app/auth/callback`
-
-### 4. Run locally
-
-```bash
+cp .env.example .env.local   # fill in Supabase keys
+npx supabase db push         # apply migrations
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-Without Supabase configured, the app runs in **demo mode** with mock stations.
+Open http://localhost:3000. Without Supabase, the app runs in **demo mode**.
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start development server |
+| `npm run dev` | Development server |
 | `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm test` | Run unit tests |
+| `npm run test` | Unit tests (Vitest) |
+| `npm run lint` | ESLint |
+| `npm run import:all` | Fetch pure-gas.org → Supabase |
+| `npm run smoke:prod` | Production smoke tests |
+| `npm run env:push` | Push `.env.local` to Vercel |
+| `npm run setup:all` | Secrets + VAPID generation checklist |
 
-## Deploy to Vercel
+## Deploy
 
-1. Push the repo to GitHub
-2. Import the project in [Vercel](https://vercel.com/new)
-3. Add environment variables from `.env.local`
-4. In Supabase, run migrations in order:
-   - `001_initial_schema.sql`
-   - `002_premium_contributions_api.sql`
-   - `003_station_photos_storage.sql`
-5. Run `seed.sql` and optionally `seed_regional_stations.sql`
-6. Deploy
+1. Push to GitHub and connect Vercel
+2. Set env vars — see [docs/ENV.md](docs/ENV.md)
+3. `npm run import:all` with service role key
+4. `npx vercel deploy --prod --yes`
 
-## API licensing
+Full checklist: [docs/SETUP.md](docs/SETUP.md)
 
-Licensed partners can query `GET /api/v1/stations` with an `X-API-Key` header. Set `API_LICENSE_KEYS` (comma-separated) in env.
+## Documentation
+
+### On the live site
+
+| Page | Path |
+|------|------|
+| Help center | `/docs` |
+| Fuel guides | `/guides` |
+| API partners | `/developers` |
+| About | `/about` |
+
+### Repository (`docs/`)
+
+| Doc | Description |
+|-----|-------------|
+| [docs/README.md](docs/README.md) | Documentation index |
+| [docs/SETUP.md](docs/SETUP.md) | Production setup |
+| [docs/ENV.md](docs/ENV.md) | Environment variables |
+| [docs/API.md](docs/API.md) | REST API reference |
+| [docs/ADMIN.md](docs/ADMIN.md) | Admin console |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Cron, CI, monitoring |
+| [docs/DOMAIN.md](docs/DOMAIN.md) | Custom domain |
+| [docs/MOBILE.md](docs/MOBILE.md) | PWA / mobile |
+| [docs/PRD.md](docs/PRD.md) | Product requirements |
+| [docs/TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md) | Architecture & schema |
 
 ## Contributor points
 
@@ -89,15 +87,19 @@ Licensed partners can query `GET /api/v1/stations` with an `X-API-Key` header. S
 ## Project structure
 
 ```
-docs/PRD.md              Product requirements
-docs/TECHNICAL_SPEC.md   API contracts, schema, sprint plan
-src/app/                 Next.js App Router pages and API routes
-src/components/          Map, search, station UI
-src/lib/                 Supabase clients, types, utilities
-supabase/                SQL migrations and seed data
+src/app/              Next.js pages and API routes
+src/components/       Map, search, station, layout UI
+src/lib/content/      Guides and help docs content
+src/lib/              Supabase, types, utilities
+supabase/migrations/  PostgreSQL schema (12 migrations)
+docs/                 Operator and developer documentation
+scripts/              Import, setup, smoke test tooling
 ```
 
-## Documentation
+## Stack
 
-- [Product Requirements](docs/PRD.md)
-- [Technical Specification](docs/TECHNICAL_SPEC.md)
+Next.js 16 · React 19 · Tailwind 4 · Supabase · Mapbox / Leaflet · Vercel
+
+## License
+
+Station data attributed to [pure-gas.org](https://www.pure-gas.org/). Application code per repository license.

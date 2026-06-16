@@ -76,6 +76,51 @@ export const GUIDES = [
     ],
     mapQuery: "state=NC",
   },
+  {
+    slug: "south-carolina-e0-gas",
+    title: "Ethanol-free gas in South Carolina",
+    description: "Marina fuel and recreation gas across South Carolina.",
+    body: [
+      "South Carolina listings cluster along the coast, lakes, and Lowcountry boating communities.",
+      "Check station classification — many coastal listings are marina docks, not road-accessible pumps.",
+      "Verify stations after major storms or seasonal marina closures to keep listings accurate.",
+    ],
+    mapQuery: "state=SC",
+  },
+  {
+    slug: "michigan-e0-gas",
+    title: "Ethanol-free gas in Michigan",
+    description: "E0 stations for boats, snowmobiles, and classic cars in Michigan.",
+    body: [
+      "Michigan has extensive lake and UP recreation traffic — E0 is common near marinas and rural pumps.",
+      "Use route search when towing a boat between lakes or heading north for the season.",
+      "Winter storage makes fresh verifications especially valuable each spring.",
+    ],
+    mapQuery: "state=MI",
+  },
+  {
+    slug: "marina-fuel-docks",
+    title: "How to use marina fuel docks safely",
+    description: "Tips for filling jerry cans and boats at ethanol-free marina gas.",
+    body: [
+      "Marina listings on E0 Finder are marked as boat stations — they may not be reachable by car.",
+      "Call ahead for hours, pump type, and whether they sell recreation fuel to walk-up customers.",
+      "Bring approved containers and follow dock fueling rules; many marinas require staff assistance.",
+      "After fueling, verify the listing so other boaters know E0 is still available.",
+    ],
+  },
+  {
+    slug: "classic-cars-e0-gas",
+    title: "Ethanol-free gas for classic cars",
+    description: "Why collectors use E0 and how to find reliable stations.",
+    body: [
+      "Ethanol can damage rubber fuel lines, carburetors, and fuel tanks in older vehicles.",
+      "E0 is not available at every premium pump — look for recreation fuel or explicit non-ethanol signage.",
+      "Verify a station before a show or tour; community reports help confirm fuel is still sold.",
+      "Use the car-station filter on the map to skip marina-only docks.",
+    ],
+    mapQuery: "classification=car",
+  },
 ] as const;
 
 export function getGuide(slug: string) {

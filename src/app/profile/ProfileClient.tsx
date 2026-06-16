@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { VERIFICATION_ONBOARDING_GOAL } from "@/components/map/VerifyStationNudge";
 import { getBadgesForPoints, CONTRIBUTOR_BADGES } from "@/lib/gamification/badges";
 import { useUser } from "@/hooks/useUser";
 
@@ -9,6 +10,7 @@ interface ProfileData {
   contributor_points: number;
   display_name: string;
   badges: string[];
+  verification_count: number;
 }
 
 export function ProfileClient() {
@@ -66,7 +68,12 @@ export function ProfileClient() {
   }
 
   const points = profile?.contributor_points ?? 0;
+  const verifications = profile?.verification_count ?? 0;
   const earned = getBadgesForPoints(points);
+  const verifyProgress = Math.min(
+    100,
+    Math.round((verifications / VERIFICATION_ONBOARDING_GOAL) * 100)
+  );
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6">
@@ -101,6 +108,32 @@ export function ProfileClient() {
         {message && (
           <p className="mt-2 text-sm text-zinc-600" role="status">{message}</p>
         )}
+
+        <div className="mt-6 border-t border-zinc-100 pt-4">
+          <div className="flex items-baseline justify-between text-sm">
+            <p className="font-medium text-zinc-800">Verification goal</p>
+            <p className="text-zinc-600">
+              {verifications} / {VERIFICATION_ONBOARDING_GOAL}
+            </p>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
+            <div
+              className="h-full rounded-full bg-sky-600 transition-all"
+              style={{ width: `${verifyProgress}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            Verify stations near you to improve data quality and earn contributor points.
+          </p>
+          {verifications < VERIFICATION_ONBOARDING_GOAL && (
+            <Link
+              href="/"
+              className="mt-2 inline-block text-sm font-medium text-sky-700 hover:text-sky-800"
+            >
+              Find a station to verify →
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">

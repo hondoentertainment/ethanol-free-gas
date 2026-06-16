@@ -25,6 +25,12 @@ export function Header() {
           Guides
         </Link>
         <Link
+          href="/docs"
+          className="hidden rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 sm:inline"
+        >
+          Help
+        </Link>
+        <Link
           href="/leaderboard"
           className="hidden rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 sm:inline"
         >

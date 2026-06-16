@@ -13,6 +13,8 @@ import {
   type SearchFilters,
 } from "@/components/search/SearchBar";
 import { StationBottomSheet } from "@/components/station/StationBottomSheet";
+import { VerifyStationNudge } from "@/components/map/VerifyStationNudge";
+import { useProfile } from "@/hooks/useProfile";
 import { ALL_DEMO_STATIONS } from "@/lib/data/seed-stations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { cacheStations, getCachedStations } from "@/lib/offline/station-cache";
@@ -98,6 +100,7 @@ function applyClientFilters(
 
 export function HomeMapPage() {
   const searchParams = useSearchParams();
+  const { verificationCount } = useProfile();
   const [allStations, setAllStations] = useState<StationWithMeta[]>(ALL_DEMO_STATIONS);
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
   const [selectedStation, setSelectedStation] = useState<StationWithMeta | null>(
@@ -223,11 +226,16 @@ export function HomeMapPage() {
   useEffect(() => {
     const state = searchParams.get("state");
     const city = searchParams.get("city");
-    if (!state && !city) return;
+    const classification = searchParams.get("classification");
+    if (!state && !city && !classification) return;
     setFilters((prev) => ({
       ...prev,
       state: state?.toUpperCase() ?? prev.state,
       city: city ?? prev.city,
+      classification:
+        classification === "car" || classification === "boat" || classification === "dual"
+          ? classification
+          : prev.classification,
     }));
     setNearbyOnly(false);
     setFitMap(true);
@@ -416,7 +424,7 @@ export function HomeMapPage() {
       </div>
 
       <div className="absolute inset-x-0 top-0 z-20 mx-auto max-w-lg px-3 pt-3 pointer-events-none">
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto space-y-2">
           <SearchBar
             filters={filters}
             onChange={(next) => {
@@ -441,6 +449,11 @@ export function HomeMapPage() {
                 onClear={clearRoute}
               />
             }
+          />
+          <VerifyStationNudge
+            stations={allStations}
+            userLocation={userLocation}
+            verificationCount={verificationCount}
           />
         </div>
       </div>
@@ -488,7 +501,7 @@ export function HomeMapPage() {
                 : "bg-zinc-700 text-white ring-zinc-800"
             }`}
           >
-            {hideInactive ? "Show closed / no E0" : "Hiding closed / no E0"}
+            {hideInactive ? "Show out of business" : "Hiding out of business"}
           </button>
         )}
         <button

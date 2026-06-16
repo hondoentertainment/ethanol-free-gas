@@ -1,98 +1,140 @@
 # Production Setup
 
+Complete checklist for deploying E0 Finder to production.
+
 ## 1. Supabase
 
 1. Create a project at [supabase.com](https://supabase.com)
-2. In the SQL editor, run in order:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_premium_contributions_api.sql`
-   - `supabase/migrations/004_external_source.sql`
-   - `supabase/migrations/005_fuel_alerts_notifications.sql`
-   - `supabase/seed.sql`
-   - `supabase/seed_regional_stations.sql`
-3. Auth → URL configuration:
-   - Site URL: `https://ethanol-free-gas.vercel.app`
+2. Link locally: `npx supabase link --project-ref YOUR_REF`
+3. Apply all migrations:
+
+```bash
+npx supabase db push
+```
+
+Migration files (`supabase/migrations/`):
+
+| # | File | Purpose |
+|---|------|---------|
+| 001 | `initial_schema` | Stations, verifications, photos, RLS |
+| 002 | `premium_contributions_api` | Premium flags, contributor points |
+| 003 | `station_photos_storage` | Storage bucket for photos |
+| 004 | `external_source` | pure-gas.org import fields |
+| 005 | `fuel_alerts_notifications` | Alerts, push, notifications |
+| 006 | `upsert_constraint` | Import deduplication |
+| 007 | `profile_on_signup` | Auto-create profile on sign-up |
+| 008 | `state_stats_rpc` | State directory stats |
+| 009 | `ratings_premium` | Ratings + premium inquiries |
+| 010 | `ops_admin` | Import runs, API usage log |
+| 011 | `closed_status` | `closed` verification enum |
+| 012 | `verification_stats` | Admin dashboard aggregates |
+
+4. **Auth → URL configuration:**
+   - Site URL: `https://ethanol-free-gas.vercel.app` (or custom domain)
    - Redirect URLs:
      - `https://ethanol-free-gas.vercel.app/auth/callback`
      - `http://localhost:3000/auth/callback`
-4. Enable Email provider (Google/Apple: see `scripts/setup-google-oauth.mjs`)
 
-## 2. Environment variables (Vercel + local)
+5. **Auth → Providers:** Enable Email. For Google/GitHub/Apple see [ENV.md](./ENV.md).
 
-Copy `.env.example` to `.env.local` and fill in:
+6. Optional seeds: `supabase/seed.sql`, `supabase/seed_regional_stations.sql`
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase API URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Import scripts only | Bulk import to Supabase (never expose to client) |
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Yes | Map + geocoding + route search |
-| `API_LICENSE_KEYS` | Optional | Comma-separated keys for `/api/v1/stations` |
-| `NEXT_PUBLIC_ADSENSE_CLIENT_ID` | Optional | Display ads |
+## 2. Environment variables
 
-In Vercel: Project → Settings → Environment Variables → add for Production and Preview.
+Copy `.env.example` → `.env.local`. See [ENV.md](./ENV.md) for full reference.
 
-## 3. Custom domain
+**Minimum for production:**
 
-Vercel → Project → Settings → Domains → add your domain (e.g. `e0finder.com`).
-
-## 4. API licensing
-
-Partners call:
-
-```http
-GET /api/v1/stations?lat=38.98&lng=-76.49&radius=25
-X-API-Key: your-license-key
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_SITE_URL=https://ethanol-free-gas.vercel.app
+ADMIN_SECRET=
+CRON_SECRET=
 ```
 
-Set `API_LICENSE_KEYS` in Vercel to one or more keys.
+**Recommended:**
 
-## 5. PWA / offline
+```
+NEXT_PUBLIC_MAPBOX_TOKEN=
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:support@yourdomain.com
+API_LICENSE_KEYS=
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+ADMIN_NOTIFY_EMAIL=
+```
 
-The app caches the last station search in `localStorage` and shows cached data when offline. Install via browser “Add to Home Screen” after visiting the site.
+Push to Vercel:
 
-## 6. Verify production
+```bash
+npm run env:push
+```
 
-- [ ] Map loads with Mapbox token
+## 3. Import station data
+
+```bash
+npm run import:all
+```
+
+Requires `SUPABASE_SERVICE_ROLE_KEY` and migration `004`.
+
+Attribution: data from [pure-gas.org](https://www.pure-gas.org/) — credited on the map UI.
+
+## 4. Deploy to Vercel
+
+1. Push repo to GitHub
+2. Import project in [Vercel](https://vercel.com/new)
+3. Add environment variables
+4. Deploy — `vercel.json` configures weekly cron
+
+```bash
+npx vercel deploy --prod --yes
+```
+
+## 5. Custom domain
+
+See [DOMAIN.md](./DOMAIN.md). Set `NEXT_PUBLIC_SITE_URL` after adding domain.
+
+## 6. OAuth (optional)
+
+```bash
+node scripts/setup-google-oauth.mjs
+node scripts/setup-github-oauth.mjs
+```
+
+Apple: configure in Supabase dashboard + Apple Developer portal.
+
+## 7. Verify production
+
+```bash
+npm run smoke:prod
+```
+
+Manual checklist:
+
+- [ ] Map loads (Mapbox or OSM fallback)
 - [ ] Stations load from Supabase (not “Demo data” badge)
+- [ ] ~17,000+ stations on “Load all”
 - [ ] Sign in → verify station works
 - [ ] Add station at `/station/add`
 - [ ] Route search finds stations along a trip
 - [ ] `/api/v1/stations` returns data with API key
+- [ ] `/admin` dashboard loads with admin key
+- [ ] `/docs` help center accessible
 
-## 7. Import from pure-gas.org
+## 8. Ongoing operations
 
-The app can load ~17,000+ ethanol-free stations from [pure-gas.org](https://www.pure-gas.org/) via their public GraphQL API.
+See [OPERATIONS.md](./OPERATIONS.md) for cron, monitoring, and imports.
 
-### Fetch to JSON (no Supabase required)
+## 9. Documentation
 
-```bash
-npm run import:pure-gas
-```
-
-This writes `data/pure-gas-stations.json`. When Supabase is not configured, the API serves this dataset automatically. Re-run periodically to refresh listings.
-
-### Bulk import into Supabase
-
-Requires migration `004_external_source.sql` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
-
-```bash
-# From existing JSON
-npm run import:supabase
-
-# Fetch live from pure-gas.org, then upsert
-npm run import:supabase -- --fresh
-
-# Preview without writing
-npm run import:supabase -- --dry-run
-
-# Replace all pure-gas.org rows before import
-npm run import:supabase -- --clear
-
-# Full pipeline: fetch JSON + upsert to Supabase
-npm run import:all
-```
-
-Rows are upserted on `(source, external_id)` so re-runs update existing stations without duplicates.
-
-**Attribution:** Station data is sourced from pure-gas.org and is displayed with a credit link on the map.
+| Audience | Location |
+|----------|----------|
+| End users | `/docs` on live site |
+| Fuel education | `/guides` |
+| API partners | `/developers` + [API.md](./API.md) |
+| Operators | [ADMIN.md](./ADMIN.md) |
+| Developers | [TECHNICAL_SPEC.md](./TECHNICAL_SPEC.md) |

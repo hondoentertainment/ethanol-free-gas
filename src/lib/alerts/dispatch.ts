@@ -62,8 +62,8 @@ export async function dispatchFuelAlerts(
   const copy =
     params.verificationStatus === "closed"
       ? {
-          title: "Station reported closed",
-          body: `${params.stationName} was reported as closed or no longer at this location.`,
+          title: "Station reported out of business",
+          body: `${params.stationName} was reported as no longer in business at this location.`,
         }
       : ALERT_COPY[params.alertType](params.stationName);
   const stationUrl = `/station/${params.stationId}`;

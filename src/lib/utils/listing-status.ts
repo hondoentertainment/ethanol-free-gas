@@ -10,7 +10,7 @@ export type ListingStatus =
 export const LISTING_STATUS_TEXT: Record<ListingStatus, string | null> = {
   active: null,
   no_e0: "No longer sells E0",
-  closed: "Closed or no longer there",
+  closed: "No longer in business",
   needs_review: "Listing may be incorrect",
   unknown: null,
 };
@@ -26,9 +26,9 @@ export const LISTING_STATUS_BANNER: Record<
     className: "border-amber-200 bg-amber-50 text-amber-950",
   },
   closed: {
-    title: "Reported: station closed or removed",
+    title: "Reported: no longer in business",
     description:
-      "Community members reported this business is closed or no longer at this address.",
+      "Community members reported this gas station or marina has permanently closed, been demolished, or left this address.",
     className: "border-red-200 bg-red-50 text-red-950",
   },
   needs_review: {
@@ -42,7 +42,7 @@ export const LISTING_STATUS_BANNER: Record<
 export const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
   available: "Still sells E0",
   unavailable: "No longer sells E0",
-  closed: "Closed or no longer there",
+  closed: "No longer in business",
   incorrect: "Wrong listing details",
 };
 
@@ -50,6 +50,13 @@ export function getListingStatus(
   latestReport: LastVerification | null
 ): ListingStatus {
   if (!latestReport) return "unknown";
+
+  if (
+    latestReport.status === "incorrect" &&
+    latestReport.notes?.includes("[no_longer_in_business]")
+  ) {
+    return "closed";
+  }
 
   switch (latestReport.status) {
     case "available":

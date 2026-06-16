@@ -39,7 +39,7 @@ export function MapLegend() {
             className="h-3 w-3 rounded-full bg-[#71717a] ring-2 ring-white"
             aria-hidden="true"
           />
-          Reported: closed
+          Reported: out of business
         </li>
         <li className="flex items-center gap-2">
           <span

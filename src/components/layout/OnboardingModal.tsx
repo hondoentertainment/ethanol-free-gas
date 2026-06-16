@@ -26,9 +26,14 @@ export function OnboardingModal() {
           <li>🟢 <strong>Green</strong> pins — car stations</li>
           <li>🔵 <strong>Blue</strong> — marina / boat fuel</li>
           <li>🟣 <strong>Purple</strong> — dual car + boat access</li>
-          <li>Verify stations to keep data fresh for the community</li>
+          <li>Verify stations to keep data fresh — aim for <strong>5 verifications</strong> to climb the leaderboard</li>
           <li>Use <strong>Route search</strong> to find E0 along your trip</li>
         </ul>
+        <p className="mt-4 text-sm text-zinc-600">
+          <a href="/docs" className="font-medium text-sky-700 hover:text-sky-800">
+            Read the full help center →
+          </a>
+        </p>
         <button
           type="button"
           onClick={close}
