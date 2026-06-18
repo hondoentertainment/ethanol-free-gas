@@ -299,8 +299,19 @@ export function HomeMapPage() {
   useEffect(() => {
     if (parseRouteParams(searchParams)) return;
 
+    // Instant first paint: show the last cached stations immediately (real
+    // data, no spinner) while geolocation + a fresh fetch happen in parallel.
+    const cached = getCachedStations();
+    const hasCached = Boolean(cached?.stations?.length);
+    if (hasCached) {
+      setAllStations(cached!.stations as StationWithMeta[]);
+      setDataSource(isSupabaseConfigured() ? "supabase" : "pure-gas");
+      if (cached!.center) lastRegionalCenterRef.current = cached!.center;
+      setLoading(false);
+    }
+
     if (!navigator.geolocation) {
-      loadStations(undefined, { fit: true });
+      loadStations(cached?.center ?? undefined, { fit: !hasCached });
       return;
     }
 
@@ -314,7 +325,7 @@ export function HomeMapPage() {
         lastRegionalCenterRef.current = loc;
         loadStations(loc, { fit: true });
       },
-      () => loadStations(undefined, { fit: true }),
+      () => loadStations(cached?.center ?? undefined, { fit: !hasCached }),
       { timeout: 8000, maximumAge: 120000 }
     );
   }, [loadStations]);

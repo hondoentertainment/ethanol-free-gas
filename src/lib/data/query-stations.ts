@@ -26,6 +26,14 @@ import {
   type LatLng,
 } from "@/lib/utils/route";
 
+/**
+ * Columns needed to render the map + list + bottom sheet. Excludes heavy or
+ * detail-only fields (notes, source_url, hours, timestamps) to shrink the
+ * payload — especially important for the "all stations" (up to 20k rows) load.
+ */
+const STATION_LIST_COLUMNS =
+  "id,name,address,city,state,zip,country,lat,lng,classification,fuel_type,ethanol_percent,phone,is_premium,is_sponsored";
+
 export interface StationQueryParams {
   q?: string;
   zip?: string;
@@ -139,7 +147,7 @@ export async function queryStations(
   }
 
   const supabase = await createClient();
-  let query = supabase.from("stations").select("*");
+  let query = supabase.from("stations").select(STATION_LIST_COLUMNS);
 
   if (params.classification) {
     query = query.eq("classification", params.classification);
@@ -195,7 +203,7 @@ export async function queryStations(
   if (stationIds.length > 0) {
     const { data: verificationRows, error: verificationError } = await supabase
       .from("verifications")
-      .select("*")
+      .select("station_id,status,created_at,notes")
       .in("station_id", stationIds)
       .order("created_at", { ascending: false });
 
@@ -226,10 +234,6 @@ export async function queryStations(
     enriched = enriched
       .filter((s) => (s.distance_miles ?? 0) <= radius)
       .sort((a, b) => (a.distance_miles ?? 0) - (b.distance_miles ?? 0));
-  } else if (center && params.all) {
-    enriched = enriched.map((station) =>
-      enrichStation(station, verifications.filter((v) => v.station_id === station.id), center)
-    );
   }
 
   return sortStationsForDisplay(enriched);

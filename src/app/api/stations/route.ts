@@ -53,15 +53,25 @@ export async function GET(request: NextRequest) {
       all: showAll,
     });
 
-    return NextResponse.json({
-      stations,
-      count: stations.length,
-      source: isSupabaseConfigured()
-        ? "supabase"
-        : isPureGasDataAvailable()
-          ? "pure-gas"
-          : "demo",
-    });
+    return NextResponse.json(
+      {
+        stations,
+        count: stations.length,
+        source: isSupabaseConfigured()
+          ? "supabase"
+          : isPureGasDataAvailable()
+            ? "pure-gas"
+            : "demo",
+      },
+      {
+        headers: {
+          // Public station data — let the CDN/browser serve repeat and
+          // multi-user loads instantly while revalidating in the background.
+          "Cache-Control":
+            "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       {
