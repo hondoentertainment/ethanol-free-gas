@@ -8,6 +8,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import Map, { Layer, NavigationControl, Source } from "react-map-gl/mapbox";
 import type { StationWithMeta } from "@/lib/types/station";
 import { boundsFromPoints } from "@/lib/utils/geo";
+import { STATION_COLORS } from "@/lib/map/colors";
 
 const LeafletMapView = dynamic(
   () => import("./LeafletMapView").then((m) => m.LeafletMapView),
@@ -57,6 +58,7 @@ export function MapView({
   onMoveEnd,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
+  const suppressMoveEndRef = useRef(false);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   const geojson = useMemo(() => stationsToGeoJson(stations), [stations]);
@@ -80,6 +82,7 @@ export function MapView({
     const bounds = boundsFromPoints(stations);
     if (!bounds) return;
 
+    suppressMoveEndRef.current = true;
     map.fitBounds(
       [
         [bounds.minLng, bounds.minLat],
@@ -87,6 +90,9 @@ export function MapView({
       ],
       { padding: { top: 100, bottom: 80, left: 40, right: 40 }, duration: 800 }
     );
+    window.setTimeout(() => {
+      suppressMoveEndRef.current = false;
+    }, 1200);
   }, [stations]);
 
   useEffect(() => {
@@ -98,7 +104,11 @@ export function MapView({
   useEffect(() => {
     const map = mapRef.current?.getMap();
     if (!map || !flyTo) return;
+    suppressMoveEndRef.current = true;
     map.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: 10, duration: 1200 });
+    window.setTimeout(() => {
+      suppressMoveEndRef.current = false;
+    }, 1500);
   }, [flyTo]);
 
   const handleMapClick = useCallback(
@@ -156,12 +166,13 @@ export function MapView({
         latitude: 38,
         zoom: 3.5,
       }}
-      onMoveEnd={(event) =>
+      onMoveEnd={(event) => {
+        if (suppressMoveEndRef.current) return;
         onMoveEnd?.({
           lat: event.viewState.latitude,
           lng: event.viewState.longitude,
-        })
-      }
+        });
+      }}
       interactiveLayerIds={[
         "station-clusters",
         "station-unclustered",
@@ -179,7 +190,7 @@ export function MapView({
             id="route-line"
             type="line"
             paint={{
-              "line-color": "#0284c7",
+              "line-color": STATION_COLORS.route,
               "line-width": 4,
               "line-opacity": 0.8,
             }}
@@ -232,27 +243,27 @@ export function MapView({
             "circle-color": [
               "case",
               ["get", "is_premium"],
-              "#f59e0b",
+              STATION_COLORS.premium,
               ["get", "is_sponsored"],
-              "#f59e0b",
+              STATION_COLORS.premium,
               ["==", ["get", "listing_status"], "closed"],
-              "#71717a",
+              STATION_COLORS.closed,
               ["==", ["get", "listing_status"], "no_e0"],
-              "#dc2626",
+              STATION_COLORS.noE0,
               ["==", ["get", "listing_status"], "needs_review"],
-              "#a1a1aa",
+              STATION_COLORS.needsReview,
               ["==", ["get", "verification_stale"], true],
-              "#ea580c",
+              STATION_COLORS.stale,
               [
                 "match",
                 ["get", "classification"],
                 "car",
-                "#2563eb",
+                STATION_COLORS.car,
                 "boat",
-                "#0d9488",
+                STATION_COLORS.boat,
                 "dual",
-                "#7c3aed",
-                "#2563eb",
+                STATION_COLORS.dual,
+                STATION_COLORS.car,
               ],
             ],
             "circle-radius": [

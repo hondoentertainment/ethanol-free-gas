@@ -126,6 +126,8 @@ export function HomeMapPage() {
   const [routeEndpoints, setRouteEndpoints] = useState<RouteEndpoints | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const mapMoveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRegionalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  const REGIONAL_RELOAD_MILES = 35;
 
   const displayStations = useMemo(() => {
     if (routeMode) return allStations;
@@ -141,9 +143,10 @@ export function HomeMapPage() {
   const loadStations = useCallback(
     async (
       location?: { lat: number; lng: number },
-      options?: { all?: boolean }
+      options?: { all?: boolean; fit?: boolean }
     ) => {
     const loadAll = options?.all ?? showAllMap;
+    const shouldFit = options?.fit ?? false;
 
     if (!navigator.onLine) {
       const cached = getCachedStations();
@@ -196,11 +199,14 @@ export function HomeMapPage() {
           cachedAt: Date.now(),
           center: location,
         });
+        if (location && !loadAll) {
+          lastRegionalCenterRef.current = location;
+        }
       } else {
         setAllStations(ALL_DEMO_STATIONS);
         setDataSource("demo");
       }
-      setFitMap(true);
+      if (shouldFit) setFitMap(true);
     } catch (fetchError) {
       const cached = getCachedStations();
       if (cached?.stations?.length) {
@@ -222,6 +228,12 @@ export function HomeMapPage() {
   },
   [showAllMap]
   );
+
+  useEffect(() => {
+    if (!fitMap) return;
+    const timer = window.setTimeout(() => setFitMap(false), 1000);
+    return () => window.clearTimeout(timer);
+  }, [fitMap]);
 
   useEffect(() => {
     const state = searchParams.get("state");
@@ -288,7 +300,7 @@ export function HomeMapPage() {
     if (parseRouteParams(searchParams)) return;
 
     if (!navigator.geolocation) {
-      loadStations();
+      loadStations(undefined, { fit: true });
       return;
     }
 
@@ -299,9 +311,10 @@ export function HomeMapPage() {
           lng: position.coords.longitude,
         };
         setUserLocation(loc);
-        loadStations(loc);
+        lastRegionalCenterRef.current = loc;
+        loadStations(loc, { fit: true });
       },
-      () => loadStations(),
+      () => loadStations(undefined, { fit: true }),
       { timeout: 8000, maximumAge: 120000 }
     );
   }, [loadStations]);
@@ -368,16 +381,45 @@ export function HomeMapPage() {
     setRoutePolyline(null);
     setRouteMode(false);
     setRouteEndpoints(null);
-    loadStations(userLocation ?? undefined);
+    if (userLocation) {
+      loadStations(userLocation, { fit: true });
+    } else {
+      loadStations(undefined, { fit: true });
+    }
   }
+
+  function clearFilters() {
+    setFilters(EMPTY_FILTERS);
+    setNearbyOnly(false);
+    setFitMap(true);
+  }
+
+  const hasActiveFilters =
+    Boolean(
+      filters.q ||
+        filters.zip ||
+        filters.city ||
+        filters.state ||
+        filters.classification
+    ) || nearbyOnly;
 
   function handleMapMoveEnd(center: { lat: number; lng: number }) {
     if (routeMode || showAllMap) return;
+
+    const last = lastRegionalCenterRef.current;
+    if (
+      last &&
+      haversineMiles(last.lat, last.lng, center.lat, center.lng) <
+        REGIONAL_RELOAD_MILES
+    ) {
+      return;
+    }
+
     if (mapMoveDebounceRef.current) {
       clearTimeout(mapMoveDebounceRef.current);
     }
     mapMoveDebounceRef.current = setTimeout(() => {
-      loadStations(center, { all: false });
+      loadStations(center, { all: false, fit: false });
     }, 800);
   }
 
@@ -395,8 +437,8 @@ export function HomeMapPage() {
 
   function loadAllNationwide() {
     setShowAllMap(true);
-    loadStations(userLocation ?? undefined, { all: true });
-    setFitMap(true);
+    lastRegionalCenterRef.current = null;
+    loadStations(userLocation ?? undefined, { all: true, fit: true });
   }
 
   const listTitle = routeMode
@@ -458,67 +500,86 @@ export function HomeMapPage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="pointer-events-none absolute inset-x-0 top-[6.5rem] z-20 flex justify-center">
+          <span
+            className="inline-flex items-center gap-2 rounded-full bg-zinc-900/85 px-3 py-1.5 text-xs font-medium text-white shadow-lg animate-fade-in"
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white"
+              aria-hidden="true"
+            />
+            Updating stations…
+          </span>
+        </div>
+      )}
+
       <div className="absolute bottom-4 left-3 z-20">
         <MapLegend />
       </div>
 
-      <div className="absolute bottom-4 right-3 z-20 flex flex-col gap-2">
-        {!routeMode && !showAllMap && (
-          <button
-            type="button"
-            onClick={loadAllNationwide}
-            className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
-          >
-            Load all stations
-          </button>
-        )}
+      <div className="absolute bottom-4 right-3 z-20 flex flex-col items-end gap-2 safe-bottom">
         {!routeMode && (
-          <button
-            type="button"
-            onClick={() => {
-              setNearbyOnly((v) => !v);
-              setFitMap(true);
-            }}
-            className={`rounded-full px-4 py-2 text-sm font-medium shadow-lg ring-1 ${
-              nearbyOnly
-                ? "bg-sky-600 text-white ring-sky-700"
-                : "bg-white text-zinc-800 ring-zinc-200 hover:bg-zinc-50"
-            }`}
-          >
-            {nearbyOnly ? "Nearby only" : "Filter nearby"}
-          </button>
+          <div className="flex flex-col gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-lg ring-1 ring-zinc-200 backdrop-blur-sm">
+            {!showAllMap && (
+              <button
+                type="button"
+                onClick={loadAllNationwide}
+                className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+              >
+                Load all stations
+              </button>
+            )}
+            <button
+              type="button"
+              aria-pressed={nearbyOnly}
+              onClick={() => {
+                setNearbyOnly((v) => !v);
+                setFitMap(true);
+              }}
+              className={`rounded-xl px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
+                nearbyOnly
+                  ? "bg-sky-600 text-white hover:bg-sky-700"
+                  : "text-zinc-800 hover:bg-zinc-100"
+              }`}
+            >
+              {nearbyOnly ? "Nearby only" : "Filter nearby"}
+            </button>
+            <button
+              type="button"
+              aria-pressed={!hideInactive}
+              onClick={() => {
+                setHideInactive((v) => !v);
+                setFitMap(true);
+              }}
+              className={`rounded-xl px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
+                hideInactive
+                  ? "text-zinc-800 hover:bg-zinc-100"
+                  : "bg-zinc-700 text-white hover:bg-zinc-800"
+              }`}
+            >
+              {hideInactive ? "Show out of business" : "Hiding out of business"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFitMap(true);
+                setFlyTo(null);
+              }}
+              className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+            >
+              Fit all pins
+            </button>
+          </div>
         )}
-        {!routeMode && (
-          <button
-            type="button"
-            onClick={() => {
-              setHideInactive((v) => !v);
-              setFitMap(true);
-            }}
-            className={`rounded-full px-4 py-2 text-sm font-medium shadow-lg ring-1 ${
-              hideInactive
-                ? "bg-white text-zinc-800 ring-zinc-200 hover:bg-zinc-50"
-                : "bg-zinc-700 text-white ring-zinc-800"
-            }`}
-          >
-            {hideInactive ? "Show out of business" : "Hiding out of business"}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            setFitMap(true);
-            setFlyTo(null);
-          }}
-          className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
-        >
-          Fit all pins
-        </button>
         <button
           type="button"
           onClick={() => setListOpen(true)}
-          className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
         >
+          <span aria-hidden="true">☰</span>
           List ({displayStations.length})
         </button>
       </div>
@@ -586,12 +647,14 @@ export function HomeMapPage() {
         selectedId={selectedStation?.id ?? null}
         onSelectStation={setSelectedStation}
         title={listTitle}
+        onClearFilters={clearFilters}
+        hasActiveFilters={hasActiveFilters}
       />
 
       <StationBottomSheet
         station={selectedStation}
         onClose={() => setSelectedStation(null)}
-        onVerified={() => loadStations(userLocation ?? undefined)}
+        onVerified={() => loadStations(userLocation ?? undefined, { fit: false })}
       />
     </div>
   );

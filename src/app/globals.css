@@ -18,3 +18,70 @@ body {
 .main-map-page {
   height: calc(100dvh - 3.5rem);
 }
+
+/* ---------------------------------------------------------------------------
+   World-class UX foundations
+   --------------------------------------------------------------------------- */
+
+/* Keyboard-only focus ring. Visible for keyboard users, hidden for mouse. */
+:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* iOS Safari zooms the page when focusing an input whose font-size < 16px.
+   Force a 16px minimum on small screens to prevent the jarring auto-zoom. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Safe-area helpers for notched devices (used by overlays anchored to edges). */
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+/* Lightweight entrance for sheets / dialogs. */
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-sheet-up {
+  animation: sheet-up 0.22s ease-out;
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}

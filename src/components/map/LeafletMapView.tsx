@@ -8,6 +8,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import type { StationWithMeta } from "@/lib/types/station";
 import { boundsFromPoints } from "@/lib/utils/geo";
+import { STATION_COLORS, getPinColor } from "@/lib/map/colors";
 
 interface LeafletMapViewProps {
   stations: StationWithMeta[];
@@ -20,16 +21,7 @@ interface LeafletMapViewProps {
   onMoveEnd?: (center: { lat: number; lng: number }) => void;
 }
 
-const pinColor = (station: StationWithMeta) => {
-  if (station.is_premium || station.is_sponsored) return "#f59e0b";
-  if (station.listing_status === "closed") return "#71717a";
-  if (station.listing_status === "no_e0") return "#dc2626";
-  if (station.listing_status === "needs_review") return "#a1a1aa";
-  if (station.verification_stale) return "#ea580c";
-  if (station.classification === "boat") return "#0284c7";
-  if (station.classification === "dual") return "#7c3aed";
-  return "#16a34a";
-};
+const pinColor = (station: StationWithMeta) => getPinColor(station);
 
 export function LeafletMapView({
   stations,
@@ -46,6 +38,10 @@ export function LeafletMapView({
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const routeRef = useRef<L.Polyline | null>(null);
   const stationMapRef = useRef<Map<string, StationWithMeta>>(new Map());
+  const onMoveEndRef = useRef(onMoveEnd);
+  const suppressMoveEndRef = useRef(false);
+
+  onMoveEndRef.current = onMoveEnd;
 
   const stationIndex = useMemo(() => {
     const map = new Map<string, StationWithMeta>();
@@ -73,8 +69,9 @@ export function LeafletMapView({
     map.addLayer(cluster);
 
     map.on("moveend", () => {
+      if (suppressMoveEndRef.current) return;
       const center = map.getCenter();
-      onMoveEnd?.({ lat: center.lat, lng: center.lng });
+      onMoveEndRef.current?.({ lat: center.lat, lng: center.lng });
     });
 
     mapRef.current = map;
@@ -85,7 +82,7 @@ export function LeafletMapView({
       mapRef.current = null;
       clusterRef.current = null;
     };
-  }, [onMoveEnd]);
+  }, []);
 
   useEffect(() => {
     const cluster = clusterRef.current;
@@ -110,7 +107,7 @@ export function LeafletMapView({
     if (userLocation) {
       L.circleMarker([userLocation.lat, userLocation.lng], {
         radius: 8,
-        color: "#2563eb",
+        color: STATION_COLORS.userLocation,
         fillColor: "#3b82f6",
         fillOpacity: 1,
         weight: 2,
@@ -130,7 +127,7 @@ export function LeafletMapView({
     if (routePolyline?.length) {
       routeRef.current = L.polyline(
         routePolyline.map((p) => [p.lat, p.lng] as [number, number]),
-        { color: "#0ea5e9", weight: 4, opacity: 0.85 }
+        { color: STATION_COLORS.route, weight: 4, opacity: 0.85 }
       ).addTo(map);
     }
   }, [routePolyline]);
@@ -139,20 +136,34 @@ export function LeafletMapView({
     const map = mapRef.current;
     if (!map) return;
 
+    const runProgrammaticMove = (action: () => void) => {
+      suppressMoveEndRef.current = true;
+      action();
+      window.setTimeout(() => {
+        suppressMoveEndRef.current = false;
+      }, 1200);
+    };
+
     if (flyTo) {
-      map.flyTo([flyTo.lat, flyTo.lng], 12, { duration: 0.8 });
+      runProgrammaticMove(() =>
+        map.flyTo([flyTo.lat, flyTo.lng], 12, { duration: 0.8 })
+      );
       return;
     }
 
     if (fitToStations && stations.length > 0) {
-      const bounds = boundsFromPoints(stations.map((s) => ({ lat: s.lat, lng: s.lng })));
+      const bounds = boundsFromPoints(
+        stations.map((s) => ({ lat: s.lat, lng: s.lng }))
+      );
       if (bounds) {
-        map.fitBounds(
-          [
-            [bounds.minLat, bounds.minLng],
-            [bounds.maxLat, bounds.maxLng],
-          ],
-          { padding: [40, 40], maxZoom: 12 }
+        runProgrammaticMove(() =>
+          map.fitBounds(
+            [
+              [bounds.minLat, bounds.minLng],
+              [bounds.maxLat, bounds.maxLng],
+            ],
+            { padding: [40, 40], maxZoom: 12 }
+          )
         );
       }
     }
