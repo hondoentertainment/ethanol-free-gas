@@ -147,74 +147,112 @@ export async function queryStations(
   }
 
   const supabase = await createClient();
-  let query = supabase.from("stations").select(STATION_LIST_COLUMNS);
 
-  if (params.classification) {
-    query = query.eq("classification", params.classification);
-  }
-  if (params.zip) {
-    query = query.ilike("zip", `${params.zip}%`);
-  }
-  if (params.city) {
-    query = query.ilike("city", `%${params.city}%`);
-  }
-  if (params.state) {
-    query = query.ilike("state", params.state);
-  }
-  if (params.q) {
-    query = query.or(
-      `name.ilike.%${params.q}%,address.ilike.%${params.q}%,city.ilike.%${params.q}%,zip.ilike.%${params.q}%`
-    );
+  // Rebuild a fresh filtered query per page. PostgREST caps a single response
+  // at its `max-rows` setting (1000 here), so anything larger must be fetched
+  // with stable, ordered .range() pagination — otherwise the nationwide "all"
+  // view silently truncates to 1000 stations.
+  const buildQuery = () => {
+    let query = supabase
+      .from("stations")
+      .select(STATION_LIST_COLUMNS)
+      .order("id", { ascending: true });
+
+    if (params.classification) {
+      query = query.eq("classification", params.classification);
+    }
+    if (params.zip) {
+      query = query.ilike("zip", `${params.zip}%`);
+    }
+    if (params.city) {
+      query = query.ilike("city", `%${params.city}%`);
+    }
+    if (params.state) {
+      query = query.ilike("state", params.state);
+    }
+    if (params.q) {
+      query = query.or(
+        `name.ilike.%${params.q}%,address.ilike.%${params.q}%,city.ilike.%${params.q}%,zip.ilike.%${params.q}%`
+      );
+    }
+
+    if (center && !params.routePolyline?.length && !params.all) {
+      const box = boundingBox(center.lat, center.lng, radius);
+      query = query
+        .gte("lat", box.minLat)
+        .lte("lat", box.maxLat)
+        .gte("lng", box.minLng)
+        .lte("lng", box.maxLng);
+    }
+
+    if (params.routePolyline?.length) {
+      const lats = params.routePolyline.map((p) => p.lat);
+      const lngs = params.routePolyline.map((p) => p.lng);
+      const corridor = params.corridorMiles ?? 5;
+      const latPad = corridor / 69;
+      const lngPad =
+        corridor /
+        (69 * Math.cos(((Math.min(...lats) + Math.max(...lats)) / 2) * (Math.PI / 180)));
+      query = query
+        .gte("lat", Math.min(...lats) - latPad)
+        .lte("lat", Math.max(...lats) + latPad)
+        .gte("lng", Math.min(...lngs) - lngPad)
+        .lte("lng", Math.max(...lngs) + lngPad);
+    }
+
+    return query;
+  };
+
+  const PAGE_SIZE = 1000;
+  const stations: Station[] = [];
+  for (let from = 0; from < limit; from += PAGE_SIZE) {
+    const to = Math.min(from + PAGE_SIZE, limit) - 1;
+    const { data: page, error } = await buildQuery().range(from, to);
+    if (error) throw new Error(error.message);
+    const rows = (page ?? []) as Station[];
+    stations.push(...rows);
+    if (rows.length < to - from + 1) break;
   }
 
-  if (center && !params.routePolyline?.length && !params.all) {
-    const box = boundingBox(center.lat, center.lng, radius);
-    query = query
-      .gte("lat", box.minLat)
-      .lte("lat", box.maxLat)
-      .gte("lng", box.minLng)
-      .lte("lng", box.maxLng);
-  }
-
-  if (params.routePolyline?.length) {
-    const lats = params.routePolyline.map((p) => p.lat);
-    const lngs = params.routePolyline.map((p) => p.lng);
-    const corridor = params.corridorMiles ?? 5;
-    const latPad = corridor / 69;
-    const lngPad =
-      corridor /
-      (69 * Math.cos(((Math.min(...lats) + Math.max(...lats)) / 2) * (Math.PI / 180)));
-    query = query
-      .gte("lat", Math.min(...lats) - latPad)
-      .lte("lat", Math.max(...lats) + latPad)
-      .gte("lng", Math.min(...lngs) - lngPad)
-      .lte("lng", Math.max(...lngs) + lngPad);
-  }
-
-  query = query.limit(limit);
-
-  const { data: stations, error } = await query;
-  if (error) throw new Error(error.message);
-
-  const stationRows = (stations ?? []) as Station[];
+  const stationRows = stations;
   const stationIds = stationRows.map((s) => s.id);
 
   let verifications: Verification[] = [];
   if (stationIds.length > 0) {
-    const { data: verificationRows, error: verificationError } = await supabase
+    // PostgREST rejects very large .in() lists (the nationwide "all" view can
+    // include 17k+ ids, producing a multi-hundred-KB query string → 500).
+    // Above a threshold, fetch the much smaller verifications table in full and
+    // group it in memory instead of filtering by id.
+    const VERIFICATION_IN_LIMIT = 300;
+    let verificationQuery = supabase
       .from("verifications")
       .select("station_id,status,created_at,notes")
-      .in("station_id", stationIds)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(100000);
+
+    if (stationIds.length <= VERIFICATION_IN_LIMIT) {
+      verificationQuery = verificationQuery.in("station_id", stationIds);
+    }
+
+    const { data: verificationRows, error: verificationError } =
+      await verificationQuery;
 
     if (verificationError) throw new Error(verificationError.message);
     verifications = (verificationRows ?? []) as Verification[];
   }
 
+  // Group once (O(n)) instead of filtering per station (O(n·m)).
+  const verificationsByStation = new Map<string, Verification[]>();
+  for (const verification of verifications) {
+    const list = verificationsByStation.get(verification.station_id);
+    if (list) list.push(verification);
+    else verificationsByStation.set(verification.station_id, [verification]);
+  }
+
   let enriched = stationRows.map((station) =>
     enrichStation(
       station,
-      verifications.filter((v) => v.station_id === station.id),
+      verificationsByStation.get(station.id) ?? [],
       center
     )
   );
