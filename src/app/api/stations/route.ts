@@ -67,8 +67,11 @@ export async function GET(request: NextRequest) {
         headers: {
           // Public station data — let the CDN/browser serve repeat and
           // multi-user loads instantly while revalidating in the background.
-          "Cache-Control":
-            "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
+          // The nationwide "all" dataset only changes on the weekly import, so
+          // it can be cached far more aggressively than location/search queries.
+          "Cache-Control": showAll
+            ? "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+            : "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
         },
       }
     );

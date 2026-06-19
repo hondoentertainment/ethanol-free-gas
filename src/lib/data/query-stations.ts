@@ -152,10 +152,13 @@ export async function queryStations(
   // at its `max-rows` setting (1000 here), so anything larger must be fetched
   // with stable, ordered .range() pagination — otherwise the nationwide "all"
   // view silently truncates to 1000 stations.
-  const buildQuery = () => {
+  const buildQuery = (opts?: { withCount?: boolean }) => {
     let query = supabase
       .from("stations")
-      .select(STATION_LIST_COLUMNS)
+      .select(
+        STATION_LIST_COLUMNS,
+        opts?.withCount ? { count: "exact" } : undefined
+      )
       .order("id", { ascending: true });
 
     if (params.classification) {
@@ -205,13 +208,44 @@ export async function queryStations(
 
   const PAGE_SIZE = 1000;
   const stations: Station[] = [];
-  for (let from = 0; from < limit; from += PAGE_SIZE) {
-    const to = Math.min(from + PAGE_SIZE, limit) - 1;
-    const { data: page, error } = await buildQuery().range(from, to);
+
+  if (limit <= PAGE_SIZE) {
+    // Single page (regional / search) — one round trip.
+    const { data: page, error } = await buildQuery().range(0, limit - 1);
     if (error) throw new Error(error.message);
-    const rows = (page ?? []) as Station[];
-    stations.push(...rows);
-    if (rows.length < to - from + 1) break;
+    stations.push(...((page ?? []) as Station[]));
+  } else {
+    // Large set (nationwide "all"). Fetch the first page together with an exact
+    // count, then request the remaining pages in parallel instead of walking
+    // ~18 sequential round trips.
+    const {
+      data: firstPage,
+      count,
+      error,
+    } = await buildQuery({ withCount: true }).range(0, PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    stations.push(...((firstPage ?? []) as Station[]));
+
+    const total = Math.min(count ?? stations.length, limit);
+    const pageStarts: number[] = [];
+    for (let from = PAGE_SIZE; from < total; from += PAGE_SIZE) {
+      pageStarts.push(from);
+    }
+
+    // Cap concurrency so we don't open too many simultaneous PostgREST requests.
+    const CONCURRENCY = 6;
+    for (let i = 0; i < pageStarts.length; i += CONCURRENCY) {
+      const batch = pageStarts.slice(i, i + CONCURRENCY);
+      const pages = await Promise.all(
+        batch.map((from) =>
+          buildQuery().range(from, Math.min(from + PAGE_SIZE, total) - 1)
+        )
+      );
+      for (const { data: page, error: pageError } of pages) {
+        if (pageError) throw new Error(pageError.message);
+        stations.push(...((page ?? []) as Station[]));
+      }
+    }
   }
 
   const stationRows = stations;
