@@ -127,6 +127,9 @@ export function HomeMapPage() {
   const [shareCopied, setShareCopied] = useState(false);
   const mapMoveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRegionalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Monotonic token so the most recent load always wins (e.g. the initial
+  // nationwide load vs. the regional load fired once geolocation resolves).
+  const loadSeqRef = useRef(0);
   const REGIONAL_RELOAD_MILES = 35;
 
   const displayStations = useMemo(() => {
@@ -147,6 +150,8 @@ export function HomeMapPage() {
     ) => {
     const loadAll = options?.all ?? showAllMap;
     const shouldFit = options?.fit ?? false;
+    const seq = ++loadSeqRef.current;
+    const isStale = () => seq !== loadSeqRef.current;
 
     if (!navigator.onLine) {
       const cached = getCachedStations();
@@ -184,6 +189,9 @@ export function HomeMapPage() {
         throw new Error(data.error ?? "Failed to load stations");
       }
 
+      // A newer load started while this was in flight — discard stale results.
+      if (isStale()) return;
+
       const results = data.stations as StationWithMeta[];
       if (results.length > 0) {
         setAllStations(results);
@@ -208,6 +216,7 @@ export function HomeMapPage() {
       }
       if (shouldFit) setFitMap(true);
     } catch (fetchError) {
+      if (isStale()) return;
       const cached = getCachedStations();
       if (cached?.stations?.length) {
         setAllStations(cached.stations as StationWithMeta[]);
@@ -223,7 +232,7 @@ export function HomeMapPage() {
         );
       }
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   },
   [showAllMap]
@@ -300,7 +309,7 @@ export function HomeMapPage() {
     if (parseRouteParams(searchParams)) return;
 
     // Instant first paint: show the last cached stations immediately (real
-    // data, no spinner) while geolocation + a fresh fetch happen in parallel.
+    // data, no spinner) while a fresh fetch happens in the background.
     const cached = getCachedStations();
     const hasCached = Boolean(cached?.stations?.length);
     if (hasCached) {
@@ -310,24 +319,29 @@ export function HomeMapPage() {
       setLoading(false);
     }
 
-    if (!navigator.geolocation) {
-      loadStations(cached?.center ?? undefined, { fit: !hasCached });
-      return;
-    }
+    // Load pins right away instead of waiting for the geolocation prompt — this
+    // is what kept the map sparse/blank until the user answered the permission
+    // dialog. With a cached center we refresh that region; otherwise we load the
+    // (edge-cached) nationwide set so the map is populated immediately.
+    loadStations(cached?.center ?? undefined, { fit: !hasCached });
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const loc = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        setUserLocation(loc);
-        lastRegionalCenterRef.current = loc;
-        loadStations(loc, { fit: true });
-      },
-      () => loadStations(cached?.center ?? undefined, { fit: !hasCached }),
-      { timeout: 8000, maximumAge: 120000 }
-    );
+    // Refine to the user's location in parallel. Fired after the initial load,
+    // so its sequence token is newer and its results win the race.
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const loc = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setUserLocation(loc);
+          lastRegionalCenterRef.current = loc;
+          loadStations(loc, { fit: true });
+        },
+        () => {},
+        { timeout: 8000, maximumAge: 120000 }
+      );
+    }
   }, [loadStations]);
 
   function handleUseLocation() {

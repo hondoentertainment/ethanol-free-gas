@@ -202,8 +202,9 @@ export function MapView({
         id="stations"
         type="geojson"
         data={geojson}
-        clusterMaxZoom={10}
-        clusterRadius={40}
+        cluster
+        clusterMaxZoom={12}
+        clusterRadius={45}
       >
         <Layer
           id="station-clusters"
