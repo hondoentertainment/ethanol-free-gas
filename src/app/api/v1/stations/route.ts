@@ -4,6 +4,7 @@ import {
   parseClassificationFromRequest,
   queryStations,
 } from "@/lib/data/query-stations";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -17,6 +18,15 @@ export async function GET(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  // Enforce the documented partner quota per API key (not per IP).
+  const limited = await enforceRateLimit(request, {
+    name: "api-v1",
+    requests: 60,
+    windowSeconds: 60,
+    identifier: apiKey ?? undefined,
+  });
+  if (limited) return limited;
 
   if (apiKey) {
     void logApiUsage(apiKey, "/api/v1/stations");

@@ -6,10 +6,18 @@ import {
 import { isPureGasDataAvailable } from "@/lib/data/pure-gas";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import type { StationClassification } from "@/lib/types/station";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, {
+    name: "stations",
+    requests: 120,
+    windowSeconds: 60,
+  });
+  if (limited) return limited;
+
   const { searchParams } = request.nextUrl;
 
   const latParam = searchParams.get("lat");
@@ -87,6 +95,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, {
+    name: "stations-write",
+    requests: 15,
+    windowSeconds: 60,
+  });
+  if (limited) return limited;
+
   const body = await request.json();
 
   const name = (body.name as string | undefined)?.trim();

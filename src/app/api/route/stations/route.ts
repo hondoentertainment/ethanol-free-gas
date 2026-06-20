@@ -3,9 +3,17 @@ import {
   parseClassificationFromRequest,
   queryStations,
 } from "@/lib/data/query-stations";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, {
+    name: "route",
+    requests: 40,
+    windowSeconds: 60,
+  });
+  if (limited) return limited;
+
   const { searchParams } = request.nextUrl;
 
   const originLat = Number(searchParams.get("origin_lat"));

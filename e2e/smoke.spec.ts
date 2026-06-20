@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 
 test("home page loads", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("Ethanol-Free Fuel")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Ethanol-Free Fuel" }).first()
+  ).toBeVisible();
 });
 
 test("health endpoint", async ({ request }) => {

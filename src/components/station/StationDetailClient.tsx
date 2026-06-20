@@ -15,18 +15,32 @@ import { VerificationForm } from "@/components/station/VerificationForm";
 import { MOCK_STATIONS } from "@/lib/data/stations";
 import type { StationWithMeta, Verification } from "@/lib/types/station";
 import { VERIFICATION_STATUS_LABELS } from "@/lib/utils/listing-status";
+import { relativeTime } from "@/lib/utils/relative-time";
 
 interface StationPhoto {
   id: string;
   url: string;
 }
 
-export function StationDetailClient({ id }: { id: string }) {
+export function StationDetailClient({
+  id,
+  initialStation,
+  initialVerifications,
+  initialPhotos,
+}: {
+  id: string;
+  initialStation?: StationWithMeta | null;
+  initialVerifications?: Verification[];
+  initialPhotos?: StationPhoto[];
+}) {
   const mock = MOCK_STATIONS.find((s) => s.id === id);
-  const [station, setStation] = useState<StationWithMeta | null>(mock ?? null);
-  const [verifications, setVerifications] = useState<Verification[]>([]);
-  const [photos, setPhotos] = useState<StationPhoto[]>([]);
-  const [loading, setLoading] = useState(!mock);
+  const seed = initialStation ?? mock ?? null;
+  const [station, setStation] = useState<StationWithMeta | null>(seed);
+  const [verifications, setVerifications] = useState<Verification[]>(
+    initialVerifications ?? []
+  );
+  const [photos, setPhotos] = useState<StationPhoto[]>(initialPhotos ?? []);
+  const [loading, setLoading] = useState(!seed);
 
   const loadStation = useCallback(async () => {
     setLoading(true);
@@ -48,8 +62,10 @@ export function StationDetailClient({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    if (!mock) loadStation();
-  }, [mock, loadStation]);
+    // Server already provided fresh data for the first paint; only fetch when
+    // we were rendered without a seed (e.g. used outside the SSR page).
+    if (!seed) loadStation();
+  }, [seed, loadStation]);
 
   if (loading) {
     return <p className="px-4 py-10 text-sm text-zinc-500">Loading station…</p>;
@@ -101,6 +117,32 @@ export function StationDetailClient({ id }: { id: string }) {
             status={station.listing_status ?? "unknown"}
             reportedAt={station.latest_report?.created_at}
           />
+        </div>
+
+        <div
+          className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+            station.verification_stale
+              ? "bg-orange-50 text-orange-800"
+              : station.last_verification
+                ? "bg-emerald-50 text-emerald-800"
+                : "bg-zinc-50 text-zinc-600"
+          }`}
+        >
+          <span aria-hidden>
+            {station.last_verification
+              ? station.verification_stale
+                ? "⚠️"
+                : "✓"
+              : "·"}
+          </span>
+          <span>
+            {station.last_verification
+              ? `Last confirmed available ${relativeTime(
+                  station.last_verification.created_at
+                )}`
+              : "Not yet confirmed by the community — be the first to verify it."}
+            {station.verification_stale && " · could use a fresh check"}
+          </span>
         </div>
 
         <dl className="mt-6 grid gap-3 text-sm">

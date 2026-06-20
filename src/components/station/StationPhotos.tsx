@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useUser } from "@/hooks/useUser";
 
@@ -88,13 +89,14 @@ export function PhotoGallery({ photos }: { photos: { id: string; url: string }[]
             href={photo.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
+            className="relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={photo.url}
               alt="Station photo"
-              className="aspect-[4/3] w-full object-cover"
+              fill
+              sizes="(max-width: 640px) 50vw, 33vw"
+              className="object-cover"
             />
           </a>
         ))}

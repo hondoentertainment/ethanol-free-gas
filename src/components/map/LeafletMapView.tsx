@@ -41,7 +41,10 @@ export function LeafletMapView({
   const onMoveEndRef = useRef(onMoveEnd);
   const suppressMoveEndRef = useRef(false);
 
-  onMoveEndRef.current = onMoveEnd;
+  // Keep the latest callback in a ref without reassigning during render.
+  useEffect(() => {
+    onMoveEndRef.current = onMoveEnd;
+  }, [onMoveEnd]);
 
   const stationIndex = useMemo(() => {
     const map = new Map<string, StationWithMeta>();

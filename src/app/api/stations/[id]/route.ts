@@ -1,7 +1,7 @@
-import { enrichStation, MOCK_STATIONS } from "@/lib/data/stations";
+import { getStationDetail } from "@/lib/data/station-detail";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import type { Station, StationClassification, Verification } from "@/lib/types/station";
+import type { StationClassification } from "@/lib/types/station";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -10,67 +10,25 @@ export async function GET(
 ) {
   const { id } = await context.params;
 
-  const mock = MOCK_STATIONS.find((s) => s.id === id);
-  if (mock) {
-    return NextResponse.json({
-      station: mock,
-      verifications: [],
-      photos: [],
-      verification_label: mock.verification_label,
-    });
-  }
-
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: "Station not found" }, { status: 404 });
-  }
-
-  const supabase = await createClient();
-
-  const { data: station, error } = await supabase
-    .from("stations")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  if (!station) {
-    return NextResponse.json({ error: "Station not found" }, { status: 404 });
-  }
-
-  const [{ data: verifications, error: verificationError }, { data: photos }] =
-    await Promise.all([
-      supabase
-        .from("verifications")
-        .select("*")
-        .eq("station_id", id)
-        .order("created_at", { ascending: false })
-        .limit(10),
-      supabase
-        .from("photos")
-        .select("id, url, created_at")
-        .eq("station_id", id)
-        .order("created_at", { ascending: false })
-        .limit(12),
-    ]);
-
-  if (verificationError) {
+  let detail;
+  try {
+    detail = await getStationDetail(id);
+  } catch (error) {
     return NextResponse.json(
-      { error: verificationError.message },
+      { error: error instanceof Error ? error.message : "Failed to load station" },
       { status: 500 }
     );
   }
 
-  const verificationRows = (verifications ?? []) as Verification[];
-  const enriched = enrichStation(station as Station, verificationRows);
+  if (!detail) {
+    return NextResponse.json({ error: "Station not found" }, { status: 404 });
+  }
 
   return NextResponse.json({
-    station: enriched,
-    verifications: verificationRows,
-    photos: photos ?? [],
-    verification_label: enriched.verification_label,
+    station: detail.station,
+    verifications: detail.verifications,
+    photos: detail.photos,
+    verification_label: detail.station.verification_label,
   });
 }
 

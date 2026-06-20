@@ -2,9 +2,17 @@ import {
   geocodeWithMapbox,
   geocodeWithNominatim,
 } from "@/lib/geocode/providers";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, {
+    name: "geocode",
+    requests: 60,
+    windowSeconds: 60,
+  });
+  if (limited) return limited;
+
   const q = request.nextUrl.searchParams.get("q")?.trim();
 
   if (!q || q.length < 2) {

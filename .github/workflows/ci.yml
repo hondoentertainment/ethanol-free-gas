@@ -21,3 +21,20 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Run E2E in demo mode (no Supabase env) so tests are deterministic and
+      # don't depend on a live database from CI.
+      - run: npm run build
+      - run: npm run test:e2e
+        env:
+          CI: "true"

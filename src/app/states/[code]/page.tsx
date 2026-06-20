@@ -6,6 +6,8 @@ import {
   getRegionName,
   US_STATE_NAMES,
 } from "@/lib/data/state-stats";
+import { slugify } from "@/lib/utils/slug";
+import { breadcrumbList, JsonLd } from "@/components/seo/JsonLd";
 
 export async function generateMetadata({
   params,
@@ -48,15 +50,37 @@ export default async function StatePage({
   const stations = await queryStations({
     state: stateCode,
     all: true,
-    limit: 50,
   });
 
   const filtered = stations.filter(
     (s) => s.state === stateCode && s.country === countryCode
   );
 
+  const countryQuery = countryCode === "CA" ? "?country=CA" : "";
+
+  const cityCounts = new Map<string, { city: string; count: number }>();
+  for (const s of filtered) {
+    if (!s.city) continue;
+    const slug = slugify(s.city);
+    const existing = cityCounts.get(slug);
+    if (existing) existing.count += 1;
+    else cityCounts.set(slug, { city: s.city, count: 1 });
+  }
+  const cities = Array.from(cityCounts.entries())
+    .map(([slug, value]) => ({ slug, ...value }))
+    .sort((a, b) => b.count - a.count);
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6">
+      <JsonLd
+        data={breadcrumbList([
+          { name: "Regions", path: "/states" },
+          {
+            name,
+            path: `/states/${stateCode.toLowerCase()}${countryQuery}`,
+          },
+        ])}
+      />
       <Link href="/states" className="text-sm font-medium text-sky-700 hover:text-sky-800">
         ← All regions
       </Link>
@@ -75,7 +99,28 @@ export default async function StatePage({
         View on map
       </Link>
 
-      <ul className="mt-8 space-y-2">
+      {cities.length > 1 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-zinc-900">Browse by city</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {cities.slice(0, 40).map((c) => (
+              <Link
+                key={c.slug}
+                href={`/states/${stateCode.toLowerCase()}/${c.slug}${countryQuery}`}
+                className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+              >
+                {c.city}{" "}
+                <span className="text-zinc-400">{c.count}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <h2 className="mt-8 text-sm font-semibold text-zinc-900">
+        Featured stations
+      </h2>
+      <ul className="mt-3 space-y-2">
         {filtered.slice(0, 30).map((station) => (
           <li key={station.id}>
             <Link

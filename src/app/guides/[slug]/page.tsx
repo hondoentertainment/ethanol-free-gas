@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGuide, GUIDES } from "@/lib/content/guides";
+import { breadcrumbList, JsonLd } from "@/components/seo/JsonLd";
 
 export function generateStaticParams() {
   return GUIDES.map((g) => ({ slug: g.slug }));
@@ -28,6 +29,12 @@ export default async function GuidePage({
 
   return (
     <article className="mx-auto max-w-2xl px-4 py-6">
+      <JsonLd
+        data={breadcrumbList([
+          { name: "Guides", path: "/guides" },
+          { name: guide.title, path: `/guides/${guide.slug}` },
+        ])}
+      />
       <Link href="/guides" className="text-sm font-medium text-sky-700">← Guides</Link>
       <h1 className="mt-4 text-2xl font-semibold text-zinc-900">{guide.title}</h1>
       <p className="mt-2 text-sm text-zinc-600">{guide.description}</p>
