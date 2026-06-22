@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MapView } from "@/components/map/MapView";
 import { MapLegend } from "@/components/map/MapLegend";
 import { StationListDrawer } from "@/components/map/StationListDrawer";
@@ -18,6 +18,12 @@ import { useProfile } from "@/hooks/useProfile";
 import { ALL_DEMO_STATIONS } from "@/lib/data/seed-stations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { cacheStations, getCachedStations } from "@/lib/offline/station-cache";
+import {
+  cacheMapViewport,
+  getCachedMapViewport,
+  type MapViewport,
+} from "@/lib/offline/map-viewport-cache";
+import { saveRoute } from "@/lib/offline/saved-routes";
 import type { StationWithMeta } from "@/lib/types/station";
 import { haversineMiles } from "@/lib/utils/geo";
 import {
@@ -100,6 +106,7 @@ function applyClientFilters(
 
 export function HomeMapPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { verificationCount } = useProfile();
   const [allStations, setAllStations] = useState<StationWithMeta[]>(ALL_DEMO_STATIONS);
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
@@ -125,12 +132,47 @@ export function HomeMapPage() {
   const [fitMap, setFitMap] = useState(true);
   const [routeEndpoints, setRouteEndpoints] = useState<RouteEndpoints | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [routeSaved, setRouteSaved] = useState(false);
+  const [cachedViewport, setCachedViewport] = useState<MapViewport | null>(null);
   const mapMoveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRegionalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   // Monotonic token so the most recent load always wins (e.g. the initial
   // nationwide load vs. the regional load fired once geolocation resolves).
   const loadSeqRef = useRef(0);
   const REGIONAL_RELOAD_MILES = 35;
+
+  useEffect(() => {
+    setCachedViewport(getCachedMapViewport());
+  }, []);
+
+  const handleViewportChange = useCallback((view: MapViewport) => {
+    cacheMapViewport(view);
+  }, []);
+
+  const mapInitialView =
+    !fitMap && !flyTo && !routeMode && cachedViewport
+      ? {
+          latitude: cachedViewport.lat,
+          longitude: cachedViewport.lng,
+          zoom: cachedViewport.zoom,
+        }
+      : undefined;
+
+  const syncRouteUrl = useCallback(
+    (endpoints: RouteEndpoints) => {
+      const params = new URLSearchParams({
+        olat: String(endpoints.origin.lat),
+        olng: String(endpoints.origin.lng),
+        dlat: String(endpoints.dest.lat),
+        dlng: String(endpoints.dest.lng),
+      });
+      if (filters.classification) {
+        params.set("classification", filters.classification);
+      }
+      router.replace(`/?${params.toString()}`, { scroll: false });
+    },
+    [filters.classification, router]
+  );
 
   const displayStations = useMemo(() => {
     if (routeMode) return allStations;
@@ -400,12 +442,14 @@ export function HomeMapPage() {
     setFlyTo(null);
     setListOpen(false);
     setShowAllMap(false);
+    syncRouteUrl(endpoints);
   }
 
   function clearRoute() {
     setRoutePolyline(null);
     setRouteMode(false);
     setRouteEndpoints(null);
+    router.replace("/", { scroll: false });
     if (userLocation) {
       loadStations(userLocation, { fit: true });
     } else {
@@ -460,6 +504,13 @@ export function HomeMapPage() {
     }
   }
 
+  function saveCurrentRoute() {
+    if (!routeEndpoints) return;
+    saveRoute(routeEndpoints, "Saved route");
+    setRouteSaved(true);
+    setTimeout(() => setRouteSaved(false), 2000);
+  }
+
   function loadAllNationwide() {
     setShowAllMap(true);
     lastRegionalCenterRef.current = null;
@@ -482,11 +533,13 @@ export function HomeMapPage() {
           routePolyline={routePolyline}
           fitToStations={fitMap}
           flyTo={flyTo}
+          initialViewState={mapInitialView}
           onSelectStation={(station) => {
             setSelectedStation(station);
             setListOpen(false);
           }}
           onMoveEnd={handleMapMoveEnd}
+          onViewportChange={handleViewportChange}
         />
       </div>
 
@@ -654,13 +707,22 @@ export function HomeMapPage() {
             Clear route search
           </button>
           {routeEndpoints && (
-            <button
-              type="button"
-              onClick={copyRouteLink}
-              className="pointer-events-auto rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
-            >
-              {shareCopied ? "Link copied!" : "Share route"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={copyRouteLink}
+                className="pointer-events-auto rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
+              >
+                {shareCopied ? "Link copied!" : "Share route"}
+              </button>
+              <button
+                type="button"
+                onClick={saveCurrentRoute}
+                className="pointer-events-auto rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg ring-1 ring-zinc-200 hover:bg-zinc-50"
+              >
+                {routeSaved ? "Route saved!" : "Save route"}
+              </button>
+            </>
           )}
         </div>
       )}

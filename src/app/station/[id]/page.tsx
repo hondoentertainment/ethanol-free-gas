@@ -2,8 +2,18 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StationDetailClient } from "@/components/station/StationDetailClient";
 import { getStationDetail } from "@/lib/data/station-detail";
+import { queryStations } from "@/lib/data/query-stations";
 import { getSiteUrl } from "@/lib/site-url";
 import { getRegionName } from "@/lib/data/state-stats";
+import type { StationWithMeta } from "@/lib/types/station";
+
+function stationPageTitle(station: {
+  name: string;
+  city: string;
+  state: string;
+}): string {
+  return `${station.name} · E0 in ${station.city}, ${station.state}`;
+}
 
 export async function generateMetadata({
   params,
@@ -24,23 +34,23 @@ export async function generateMetadata({
 
   const { station } = detail;
   const region = getRegionName(station.state, station.country);
-  const title = `${station.name} — Ethanol-Free Gas in ${station.city}, ${station.state}`;
+  const pageTitle = stationPageTitle(station);
   const description = `${station.name} at ${station.address}, ${station.city}, ${station.state} offers ${station.fuel_type} (${station.ethanol_percent}% ethanol). Get directions, hours, and community verification for this ethanol-free fuel station in ${region}.`;
   const canonical = `${getSiteUrl()}/station/${station.id}`;
 
   return {
-    title,
+    title: { absolute: pageTitle },
     description,
     alternates: { canonical },
     openGraph: {
-      title,
+      title: pageTitle,
       description,
       url: canonical,
       type: "website",
     },
     twitter: {
       card: "summary",
-      title,
+      title: pageTitle,
       description,
     },
   };
@@ -63,6 +73,21 @@ export default async function StationPage({
 
   const { station, verifications, photos } = detail;
   const canonical = `${getSiteUrl()}/station/${station.id}`;
+
+  let nearbyStations: StationWithMeta[] = [];
+  try {
+    const nearby = await queryStations({
+      lat: station.lat,
+      lng: station.lng,
+      radius: 25,
+      limit: 8,
+    });
+    nearbyStations = nearby
+      .filter((s) => s.id !== station.id)
+      .slice(0, 6);
+  } catch {
+    nearbyStations = [];
+  }
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -95,7 +120,6 @@ export default async function StationPage({
     <>
       <script
         type="application/ld+json"
-        // JSON-LD is trusted, server-generated structured data.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <StationDetailClient
@@ -103,6 +127,7 @@ export default async function StationPage({
         initialStation={station}
         initialVerifications={verifications}
         initialPhotos={photos}
+        nearbyStations={nearbyStations}
       />
     </>
   );

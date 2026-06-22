@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGuide, GUIDES } from "@/lib/content/guides";
 import { breadcrumbList, JsonLd } from "@/components/seo/JsonLd";
+import { RelatedRegionLinks } from "@/components/seo/RelatedRegionLinks";
 
 export function generateStaticParams() {
   return GUIDES.map((g) => ({ slug: g.slug }));
@@ -50,6 +51,10 @@ export default async function GuidePage({
         >
           View on map
         </Link>
+      )}
+
+      {"mapQuery" in guide && guide.mapQuery && (
+        <RelatedRegionLinks mapQuery={guide.mapQuery} />
       )}
     </article>
   );

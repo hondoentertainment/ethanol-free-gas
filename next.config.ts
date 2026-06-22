@@ -5,8 +5,13 @@ const nextConfig: NextConfig = {
   transpilePackages: ["mapbox-gl"],
   images: {
     remotePatterns: [
-      // Supabase Storage public bucket for station photos.
       { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/**" },
+      { protocol: "https", hostname: "api.mapbox.com", pathname: "/styles/**" },
+      {
+        protocol: "https",
+        hostname: "staticmap.openstreetmap.de",
+        pathname: "/staticmap.php",
+      },
     ],
   },
 };

@@ -47,6 +47,8 @@ export function SearchBar({
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listboxId = "geocode-suggestions-list";
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const fetchSuggestions = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
@@ -106,6 +108,7 @@ export function SearchBar({
     };
     onChange(nextFilters);
     setSuggestionsOpen(false);
+    setActiveIndex(-1);
     onSelectLocation?.(suggestion);
   }
 
@@ -128,28 +131,57 @@ export function SearchBar({
               className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
+                  if (activeIndex >= 0 && suggestions[activeIndex]) {
+                    selectSuggestion(suggestions[activeIndex]);
+                    return;
+                  }
                   setSuggestionsOpen(false);
                   onSearch();
                 }
                 if (e.key === "Escape") {
                   setSuggestionsOpen(false);
+                  setActiveIndex(-1);
+                }
+                if (e.key === "ArrowDown" && suggestions.length > 0) {
+                  e.preventDefault();
+                  setSuggestionsOpen(true);
+                  setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
+                }
+                if (e.key === "ArrowUp" && suggestions.length > 0) {
+                  e.preventDefault();
+                  setSuggestionsOpen(true);
+                  setActiveIndex((i) => Math.max(i - 1, 0));
                 }
               }}
               role="combobox"
               aria-expanded={suggestionsOpen}
+              aria-controls={listboxId}
               aria-autocomplete="list"
+              aria-activedescendant={
+                activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
+              }
             />
             {suggestionsOpen && suggestions.length > 0 && (
               <ul
+                id={listboxId}
                 className="absolute inset-x-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-zinc-200 bg-white py-1 shadow-lg"
                 role="listbox"
               >
-                {suggestions.map((suggestion) => (
-                  <li key={suggestion.id} role="option">
+                {suggestions.map((suggestion, index) => (
+                  <li
+                    key={suggestion.id}
+                    id={`${listboxId}-option-${index}`}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                  >
                     <button
                       type="button"
                       onClick={() => selectSuggestion(suggestion)}
-                      className="w-full px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-zinc-50 ${
+                        index === activeIndex
+                          ? "bg-sky-50 text-sky-900"
+                          : "text-zinc-800"
+                      }`}
                     >
                       {suggestion.label}
                     </button>

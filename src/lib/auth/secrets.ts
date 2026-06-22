@@ -1,4 +1,8 @@
 import { NextRequest } from "next/server";
+import {
+  ADMIN_SESSION_COOKIE,
+  verifyAdminSessionCookie,
+} from "@/lib/auth/admin-session";
 
 export function verifyCronSecret(request: NextRequest): boolean {
   const secret =
@@ -13,5 +17,7 @@ export function verifyAdminSecret(request: NextRequest): boolean {
   const secret = process.env.ADMIN_SECRET?.trim();
   if (!secret) return false;
   const header = request.headers.get("x-admin-key");
-  return header === secret;
+  if (header === secret) return true;
+  const cookie = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+  return verifyAdminSessionCookie(cookie, secret);
 }

@@ -11,6 +11,8 @@ import { StationRatings } from "@/components/station/StationRatings";
 import { VerificationBadge } from "@/components/station/VerificationBadge";
 import { ListingStatusBadge, ListingStatusBanner } from "@/components/station/ListingStatus";
 import { ShareStationButton } from "@/components/station/ShareStationButton";
+import { StationMapPreview } from "@/components/station/StationMapPreview";
+import { StationNearbyList } from "@/components/station/StationNearbyList";
 import { VerificationForm } from "@/components/station/VerificationForm";
 import { MOCK_STATIONS } from "@/lib/data/stations";
 import type { StationWithMeta, Verification } from "@/lib/types/station";
@@ -27,11 +29,13 @@ export function StationDetailClient({
   initialStation,
   initialVerifications,
   initialPhotos,
+  nearbyStations = [],
 }: {
   id: string;
   initialStation?: StationWithMeta | null;
   initialVerifications?: Verification[];
   initialPhotos?: StationPhoto[];
+  nearbyStations?: StationWithMeta[];
 }) {
   const mock = MOCK_STATIONS.find((s) => s.id === id);
   const seed = initialStation ?? mock ?? null;
@@ -143,7 +147,24 @@ export function StationDetailClient({
               : "Not yet confirmed by the community — be the first to verify it."}
             {station.verification_stale && " · could use a fresh check"}
           </span>
+          {(station.verification_stale ||
+            station.verification_label === "unverified") && (
+            <a
+              href="#verify-station"
+              className="ml-auto shrink-0 rounded-full bg-orange-600 px-3 py-1 text-xs font-medium text-white hover:bg-orange-700"
+            >
+              Verify now
+            </a>
+          )}
         </div>
+
+        <StationMapPreview
+          lat={station.lat}
+          lng={station.lng}
+          name={station.name}
+          state={station.state}
+          country={station.country}
+        />
 
         <dl className="mt-6 grid gap-3 text-sm">
           <div>
@@ -186,7 +207,7 @@ export function StationDetailClient({
         <PhotoGallery photos={photos} />
         <PhotoUpload stationId={station.id} onUploaded={loadStation} />
 
-        <div className="mt-6">
+        <div className="mt-6" id="verify-station">
           <VerificationForm
             stationId={station.id}
             stationName={station.name}
@@ -223,6 +244,13 @@ export function StationDetailClient({
           </div>
         )}
       </div>
+
+      <StationNearbyList
+        stations={nearbyStations}
+        city={station.city}
+        state={station.state}
+        country={station.country}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DocArticle } from "@/components/docs/DocArticle";
 import { DOCS, getDoc } from "@/lib/content/docs";
 import { breadcrumbList, JsonLd } from "@/components/seo/JsonLd";
+import { RelatedRegionLinks } from "@/components/seo/RelatedRegionLinks";
 
 export function generateStaticParams() {
   return DOCS.map((d) => ({ slug: d.slug }));
@@ -42,6 +43,7 @@ export default async function DocPage({
       <div className="mt-4">
         <DocArticle doc={doc} />
       </div>
+      <RelatedRegionLinks />
     </div>
   );
 }

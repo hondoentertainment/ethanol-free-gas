@@ -22,8 +22,10 @@ interface MapViewProps {
   routePolyline?: { lat: number; lng: number }[] | null;
   fitToStations?: boolean;
   flyTo?: { lat: number; lng: number } | null;
+  initialViewState?: { latitude: number; longitude: number; zoom: number };
   onSelectStation: (station: StationWithMeta) => void;
   onMoveEnd?: (center: { lat: number; lng: number }) => void;
+  onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
 }
 
 function stationsToGeoJson(stations: StationWithMeta[]) {
@@ -54,8 +56,10 @@ export function MapView({
   routePolyline,
   fitToStations,
   flyTo,
+  initialViewState,
   onSelectStation,
   onMoveEnd,
+  onViewportChange,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
   const suppressMoveEndRef = useRef(false);
@@ -151,8 +155,10 @@ export function MapView({
         routePolyline={routePolyline}
         fitToStations={fitToStations}
         flyTo={flyTo}
+        initialViewState={initialViewState}
         onSelectStation={onSelectStation}
         onMoveEnd={onMoveEnd}
+        onViewportChange={onViewportChange}
       />
     );
   }
@@ -161,16 +167,23 @@ export function MapView({
     <Map
       ref={mapRef}
       mapboxAccessToken={token}
-      initialViewState={{
-        longitude: -95,
-        latitude: 38,
-        zoom: 3.5,
-      }}
+      initialViewState={
+        initialViewState ?? {
+          longitude: -95,
+          latitude: 38,
+          zoom: 3.5,
+        }
+      }
       onMoveEnd={(event) => {
         if (suppressMoveEndRef.current) return;
         onMoveEnd?.({
           lat: event.viewState.latitude,
           lng: event.viewState.longitude,
+        });
+        onViewportChange?.({
+          lat: event.viewState.latitude,
+          lng: event.viewState.longitude,
+          zoom: event.viewState.zoom,
         });
       }}
       interactiveLayerIds={[

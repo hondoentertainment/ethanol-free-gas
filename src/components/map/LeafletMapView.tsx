@@ -17,8 +17,10 @@ interface LeafletMapViewProps {
   routePolyline?: { lat: number; lng: number }[] | null;
   fitToStations?: boolean;
   flyTo?: { lat: number; lng: number } | null;
+  initialViewState?: { latitude: number; longitude: number; zoom: number };
   onSelectStation: (station: StationWithMeta) => void;
   onMoveEnd?: (center: { lat: number; lng: number }) => void;
+  onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
 }
 
 const pinColor = (station: StationWithMeta) => getPinColor(station);
@@ -30,8 +32,10 @@ export function LeafletMapView({
   routePolyline,
   fitToStations,
   flyTo,
+  initialViewState,
   onSelectStation,
   onMoveEnd,
+  onViewportChange,
 }: LeafletMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -39,12 +43,16 @@ export function LeafletMapView({
   const routeRef = useRef<L.Polyline | null>(null);
   const stationMapRef = useRef<Map<string, StationWithMeta>>(new Map());
   const onMoveEndRef = useRef(onMoveEnd);
+  const onViewportChangeRef = useRef(onViewportChange);
   const suppressMoveEndRef = useRef(false);
 
-  // Keep the latest callback in a ref without reassigning during render.
   useEffect(() => {
     onMoveEndRef.current = onMoveEnd;
   }, [onMoveEnd]);
+
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   const stationIndex = useMemo(() => {
     const map = new Map<string, StationWithMeta>();
@@ -56,8 +64,10 @@ export function LeafletMapView({
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: [39.5, -98.35],
-      zoom: 4,
+      center: initialViewState
+        ? [initialViewState.latitude, initialViewState.longitude]
+        : [39.5, -98.35],
+      zoom: initialViewState?.zoom ?? 4,
       zoomControl: false,
     });
 
@@ -75,6 +85,11 @@ export function LeafletMapView({
       if (suppressMoveEndRef.current) return;
       const center = map.getCenter();
       onMoveEndRef.current?.({ lat: center.lat, lng: center.lng });
+      onViewportChangeRef.current?.({
+        lat: center.lat,
+        lng: center.lng,
+        zoom: map.getZoom(),
+      });
     });
 
     mapRef.current = map;

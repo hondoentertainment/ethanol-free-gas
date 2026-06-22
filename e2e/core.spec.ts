@@ -44,8 +44,31 @@ test("sitemap is served", async ({ request }) => {
 });
 
 test("unknown station shows 404 page", async ({ page }) => {
-  // Dev server may stream a 200 for notFound(); production returns 404. Assert
-  // on the rendered not-found content, which is reliable in both modes.
   await page.goto("/station/does-not-exist-zzz");
   await expect(page.getByText(/Page not found/i)).toBeVisible();
+});
+
+test("map list drawer opens", async ({ page }) => {
+  await page.goto("/");
+  const gotIt = page.getByRole("button", { name: "Got it" });
+  if (await gotIt.isVisible()) {
+    await gotIt.click();
+  }
+  await page.getByRole("button", { name: /List/i }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("florida guide links to region directory", async ({ page }) => {
+  await page.goto("/guides/florida-e0-gas");
+  await expect(page.getByRole("link", { name: /Florida directory/i })).toBeVisible();
+});
+
+test("footer includes sitemap link", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Sitemap" })).toBeVisible();
+});
+
+test("demo station detail shows verify section", async ({ page }) => {
+  await page.goto("/station/demo-annapolis-marina");
+  await expect(page.locator("#verify-station")).toBeVisible();
 });

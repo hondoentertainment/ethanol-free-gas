@@ -14,6 +14,7 @@
     "import:all": "node scripts/import-pure-gas.mjs && node scripts/bulk-import-supabase.mjs",
     "generate:vapid": "node scripts/generate-vapid-keys.mjs",
     "generate:secrets": "node scripts/generate-secrets.mjs",
+    "generate:icons": "node scripts/generate-icons.mjs",
     "setup:all": "node scripts/setup-all.mjs",
     "env:push": "node scripts/push-vercel-env.mjs",
     "smoke:prod": "node scripts/smoke-test.mjs",
@@ -50,6 +51,7 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "sharp": "^0.35.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.6"

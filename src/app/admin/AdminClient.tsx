@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface VerificationStats {
   total_stations: number;
@@ -23,7 +23,11 @@ interface StationRow {
   address?: string;
 }
 
-export function AdminClient() {
+export function AdminClient({
+  sessionAuthenticated = false,
+}: {
+  sessionAuthenticated?: boolean;
+}) {
   const [key, setKey] = useState("");
   const [data, setData] = useState<{
     inquiries: Array<Record<string, unknown>>;
@@ -37,9 +41,23 @@ export function AdminClient() {
   const [searching, setSearching] = useState(false);
   const [importing, setImporting] = useState(false);
 
+  const canAdmin = Boolean(key) || sessionAuthenticated;
+
+  function adminHeaders(): HeadersInit {
+    return key ? { "X-Admin-Key": key } : {};
+  }
+
+  useEffect(() => {
+    if (sessionAuthenticated) {
+      load().catch((e) =>
+        setMessage(e instanceof Error ? e.message : "Failed to load dashboard")
+      );
+    }
+  }, [sessionAuthenticated]);
+
   async function load() {
     const response = await fetch("/api/admin/dashboard", {
-      headers: { "X-Admin-Key": key },
+      headers: adminHeaders(),
     });
     const json = await response.json();
     if (!response.ok) throw new Error(json.error ?? "Failed");
@@ -53,7 +71,7 @@ export function AdminClient() {
     try {
       const response = await fetch(
         `/api/admin/stations?q=${encodeURIComponent(q)}`,
-        { headers: { "X-Admin-Key": key } }
+        { headers: adminHeaders() }
       );
       const json = await response.json();
       if (!response.ok) throw new Error(json.error ?? "Search failed");
@@ -72,10 +90,10 @@ export function AdminClient() {
   ) {
     await fetch("/api/admin/actions", {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Key": key,
-      },
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders(),
+        },
       body: JSON.stringify({
         station_id: stationId,
         is_premium: isPremium,
@@ -90,10 +108,10 @@ export function AdminClient() {
   async function resolveInquiry(id: string, stationId?: string) {
     await fetch("/api/admin/actions", {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Key": key,
-      },
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders(),
+        },
       body: JSON.stringify({
         inquiry_id: id,
         status: "resolved",
@@ -110,7 +128,7 @@ export function AdminClient() {
     try {
       const response = await fetch("/api/admin/import", {
         method: "POST",
-        headers: { "X-Admin-Key": key },
+        headers: adminHeaders(),
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error ?? "Import failed");
@@ -129,29 +147,33 @@ export function AdminClient() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-2xl font-semibold text-zinc-900">Admin</h1>
       <p className="mt-1 text-sm text-zinc-600">
-        Enter your <code>ADMIN_SECRET</code> to manage premium listings and inquiries.
+        {sessionAuthenticated
+          ? "Signed in with an admin session."
+          : "Enter your admin secret to manage premium listings and inquiries."}
       </p>
 
-      <div className="mt-4 flex gap-2">
-        <input
-          type="password"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="Admin key"
-          className="flex-1 rounded-xl border border-zinc-200 px-3 py-2 text-sm"
-        />
-        <button
-          type="button"
-          onClick={() => load().catch((e) => setMessage(e.message))}
-          className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white"
-        >
-          Load
-        </button>
-      </div>
+      {!sessionAuthenticated && (
+        <div className="mt-4 flex gap-2">
+          <input
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="Admin key"
+            className="flex-1 rounded-xl border border-zinc-200 px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => load().catch((e) => setMessage(e.message))}
+            className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            Load
+          </button>
+        </div>
+      )}
 
       {message && <p className="mt-2 text-sm text-zinc-600">{message}</p>}
 
-      {key && (
+      {canAdmin && (
         <div className="mt-6 rounded-xl border border-zinc-200 p-4">
           <h2 className="text-lg font-semibold">Station search</h2>
           <p className="mt-1 text-sm text-zinc-600">
@@ -220,7 +242,7 @@ export function AdminClient() {
         </div>
       )}
 
-      {key && (
+      {canAdmin && (
         <div className="mt-6 rounded-xl border border-zinc-200 p-4">
           <h2 className="text-lg font-semibold">Data import</h2>
           <p className="mt-1 text-sm text-zinc-600">

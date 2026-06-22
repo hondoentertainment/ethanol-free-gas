@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { GeocodeSuggestion } from "@/components/search/SearchBar";
+import {
+  getSavedRoutes,
+  removeSavedRoute,
+  type SavedRoute,
+} from "@/lib/offline/saved-routes";
 import type { StationClassification, StationWithMeta } from "@/lib/types/station";
+import type { RouteEndpoints } from "@/lib/utils/route-share";
 
 interface RouteSearchPanelProps {
   onResults: (
     stations: StationWithMeta[],
     route: { lat: number; lng: number }[],
-    endpoints: {
-      origin: { lat: number; lng: number };
-      dest: { lat: number; lng: number };
-    }
+    endpoints: RouteEndpoints
   ) => void;
   onClear: () => void;
+  onLoadSavedRoute?: (endpoints: RouteEndpoints) => void;
   classification: StationClassification | "";
   loading?: boolean;
 }
@@ -21,6 +25,7 @@ interface RouteSearchPanelProps {
 export function RouteSearchPanel({
   onResults,
   onClear,
+  onLoadSavedRoute,
   classification,
   loading,
 }: RouteSearchPanelProps) {
@@ -31,11 +36,48 @@ export function RouteSearchPanel({
   const [destCoords, setDestCoords] = useState<GeocodeSuggestion | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
+
+  useEffect(() => {
+    if (open) setSavedRoutes(getSavedRoutes());
+  }, [open]);
 
   async function geocode(query: string): Promise<GeocodeSuggestion | null> {
     const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
     const data = await response.json();
     return data.suggestions?.[0] ?? null;
+  }
+
+  async function fetchRouteForEndpoints(endpoints: RouteEndpoints) {
+    setSearching(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        origin_lat: String(endpoints.origin.lat),
+        origin_lng: String(endpoints.origin.lng),
+        dest_lat: String(endpoints.dest.lat),
+        dest_lng: String(endpoints.dest.lng),
+        corridor: "5",
+      });
+      if (classification) params.set("classification", classification);
+
+      const response = await fetch(`/api/route/stations?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "Route search failed");
+      }
+
+      onResults(
+        data.stations as StationWithMeta[],
+        data.route,
+        endpoints
+      );
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Route search failed");
+    } finally {
+      setSearching(false);
+    }
   }
 
   async function searchRoute() {
@@ -51,36 +93,20 @@ export function RouteSearchPanel({
         return;
       }
 
-      const params = new URLSearchParams({
-        origin_lat: String(from.lat),
-        origin_lng: String(from.lng),
-        dest_lat: String(to.lat),
-        dest_lng: String(to.lng),
-        corridor: "5",
+      await fetchRouteForEndpoints({
+        origin: { lat: from.lat, lng: from.lng },
+        dest: { lat: to.lat, lng: to.lng },
       });
-      if (classification) params.set("classification", classification);
-
-      const response = await fetch(`/api/route/stations?${params.toString()}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Route search failed");
-      }
-
-      onResults(
-        data.stations as StationWithMeta[],
-        data.route,
-        {
-          origin: { lat: from.lat, lng: from.lng },
-          dest: { lat: to.lat, lng: to.lng },
-        }
-      );
-      setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Route search failed");
     } finally {
       setSearching(false);
     }
+  }
+
+  function loadSavedRoute(route: SavedRoute) {
+    onLoadSavedRoute?.(route.endpoints);
+    void fetchRouteForEndpoints(route.endpoints);
   }
 
   if (!open) {
@@ -98,6 +124,32 @@ export function RouteSearchPanel({
   return (
     <div className="mt-2 rounded-xl border border-sky-200 bg-sky-50/80 p-3">
       <p className="text-xs font-semibold text-sky-900">Find E0 along your route</p>
+      {savedRoutes.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs font-medium text-sky-900">Saved routes</p>
+          <ul className="mt-1 space-y-1">
+            {savedRoutes.map((route) => (
+              <li key={route.id} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => loadSavedRoute(route)}
+                  className="flex-1 rounded-lg bg-white px-2 py-1.5 text-left text-xs text-zinc-800 hover:bg-sky-100"
+                >
+                  {route.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSavedRoutes(removeSavedRoute(route.id))}
+                  className="text-xs text-zinc-500 hover:text-zinc-800"
+                  aria-label={`Remove ${route.label}`}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="mt-2 grid gap-2">
         <input
           type="text"

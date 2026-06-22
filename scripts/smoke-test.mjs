@@ -63,6 +63,32 @@ await check("sitemap", async () => {
   if (!xml.includes("<urlset")) throw new Error("invalid sitemap");
 });
 
+await check("sitemap includes station URLs", async () => {
+  const res = await fetch(`${base}/sitemap.xml`, { signal: AbortSignal.timeout(30000) });
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  const xml = await res.text();
+  const stationUrls = (xml.match(/\/station\//g) ?? []).length;
+  if (stationUrls < 1000) {
+    throw new Error(`expected 1000+ station URLs, got ${stationUrls}`);
+  }
+});
+
+await check("station detail includes GasStation JSON-LD", async () => {
+  const res = await fetch(`${base}/api/stations?limit=1&all=true`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  const data = await res.json();
+  const id = data.stations?.[0]?.id;
+  if (!id) throw new Error("no station id");
+  const page = await fetch(`${base}/station/${id}`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  const html = await page.text();
+  if (!html.includes('"GasStation"')) {
+    throw new Error("missing GasStation JSON-LD on station page");
+  }
+});
+
 await check("robots.txt", async () => {
   const res = await fetch(`${base}/robots.txt`, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`status ${res.status}`);

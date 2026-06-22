@@ -10,6 +10,7 @@ export function Footer() {
           <Link href="/guides" className="hover:text-zinc-900">Guides</Link>
           <Link href="/about" className="hover:text-zinc-900">About</Link>
           <Link href="/states" className="hover:text-zinc-900">By state</Link>
+          <Link href="/sitemap.xml" className="hover:text-zinc-900">Sitemap</Link>
           <Link href="/leaderboard" className="hover:text-zinc-900">Leaders</Link>
           <Link href="/developers" className="hover:text-zinc-900">API</Link>
           <Link href="/premium" className="hover:text-zinc-900">Premium listings</Link>
