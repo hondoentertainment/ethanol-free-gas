@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { dismissOnboardingIfPresent } from "./helpers";
 
 test("home page loads", async ({ page }) => {
   await page.goto("/");
+  await dismissOnboardingIfPresent(page);
   await expect(
     page.getByRole("heading", { name: "Ethanol-Free Fuel" }).first()
   ).toBeVisible();

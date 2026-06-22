@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { dismissOnboardingIfPresent } from "./helpers";
 
 test("stations API returns a list", async ({ request }) => {
   const response = await request.get("/api/stations?limit=5");
@@ -50,10 +51,7 @@ test("unknown station shows 404 page", async ({ page }) => {
 
 test("map list drawer opens", async ({ page }) => {
   await page.goto("/");
-  const gotIt = page.getByRole("button", { name: "Got it" });
-  if (await gotIt.isVisible()) {
-    await gotIt.click();
-  }
+  await dismissOnboardingIfPresent(page);
   await page.getByRole("button", { name: /List/i }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
 });

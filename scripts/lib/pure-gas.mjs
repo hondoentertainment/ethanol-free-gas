@@ -1,3 +1,7 @@
+import { inferClassification } from "./classification.mjs";
+
+export { inferClassification };
+
 export const CANADIAN_CODES = new Set([
   "AB", "BC", "MB", "NB", "NF", "NS", "NT", "ON", "PE", "QC", "SK", "YT",
 ]);
@@ -40,44 +44,6 @@ export async function gql(query, variables = {}) {
     throw new Error(json.errors.map((e) => e.message).join("; "));
   }
   return json.data;
-}
-
-export function inferClassification(name, comment, locationComment) {
-  const text = `${name} ${comment ?? ""} ${locationComment ?? ""}`.toLowerCase();
-  const boat = [
-    "marina",
-    "dock",
-    "harbor",
-    "harbour",
-    "yacht",
-    "boat",
-    "marine",
-    "waterside",
-    "fuel dock",
-    "sailfish",
-    "nautical",
-  ].some((k) => text.includes(k));
-  const car = [
-    "sheetz",
-    "racetrac",
-    "race way",
-    "marathon",
-    "shell",
-    "exxon",
-    "chevron",
-    "mobil",
-    "kwik trip",
-    "circle k",
-    "speedway",
-    "gas station",
-    "convenience",
-    "irving",
-    "petro",
-  ].some((k) => text.includes(k));
-
-  if (boat && car) return "dual";
-  if (boat) return "boat";
-  return "car";
 }
 
 export function mapPureGasStation(raw) {

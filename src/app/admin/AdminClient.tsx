@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface VerificationStats {
   total_stations: number;
@@ -47,22 +47,22 @@ export function AdminClient({
     return key ? { "X-Admin-Key": key } : {};
   }
 
+  const load = useCallback(async () => {
+    const response = await fetch("/api/admin/dashboard", {
+      headers: key ? { "X-Admin-Key": key } : {},
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error ?? "Failed");
+    setData(json);
+  }, [key]);
+
   useEffect(() => {
     if (sessionAuthenticated) {
       load().catch((e) =>
         setMessage(e instanceof Error ? e.message : "Failed to load dashboard")
       );
     }
-  }, [sessionAuthenticated]);
-
-  async function load() {
-    const response = await fetch("/api/admin/dashboard", {
-      headers: adminHeaders(),
-    });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error ?? "Failed");
-    setData(json);
-  }
+  }, [sessionAuthenticated, load]);
 
   async function searchStations(query?: string) {
     const q = (query ?? searchQ).trim();

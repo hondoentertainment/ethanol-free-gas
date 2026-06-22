@@ -41,6 +41,7 @@ export function LeafletMapView({
   const mapRef = useRef<L.Map | null>(null);
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const routeRef = useRef<L.Polyline | null>(null);
+  const userLocationRef = useRef<L.CircleMarker | null>(null);
   const stationMapRef = useRef<Map<string, StationWithMeta>>(new Map());
   const onMoveEndRef = useRef(onMoveEnd);
   const onViewportChangeRef = useRef(onViewportChange);
@@ -65,11 +66,10 @@ export function LeafletMapView({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const view = initialViewState;
     const map = L.map(containerRef.current, {
-      center: initialViewState
-        ? [initialViewState.latitude, initialViewState.longitude]
-        : [39.5, -98.35],
-      zoom: initialViewState?.zoom ?? 4,
+      center: view ? [view.latitude, view.longitude] : [39.5, -98.35],
+      zoom: view?.zoom ?? 4,
       zoomControl: false,
     });
 
@@ -108,6 +108,8 @@ export function LeafletMapView({
       mapRef.current = null;
       clusterRef.current = null;
     };
+    // Map is initialized once; viewport restore is handled by the fit/fly effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single init
   }, []);
 
   useEffect(() => {
@@ -130,8 +132,13 @@ export function LeafletMapView({
       cluster.addLayer(marker);
     });
 
+    if (userLocationRef.current) {
+      map.removeLayer(userLocationRef.current);
+      userLocationRef.current = null;
+    }
+
     if (userLocation) {
-      L.circleMarker([userLocation.lat, userLocation.lng], {
+      userLocationRef.current = L.circleMarker([userLocation.lat, userLocation.lng], {
         radius: 8,
         color: STATION_COLORS.userLocation,
         fillColor: "#3b82f6",

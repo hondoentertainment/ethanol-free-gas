@@ -1,7 +1,13 @@
 import { createServiceClient } from "@/lib/supabase/admin";
+import {
+  mapPureGasRow,
+  type PureGasImportRow,
+} from "@/lib/import/pure-gas-mapper";
+import type { StationClassification, StationHours } from "@/lib/types/station";
 
 const GRAPHQL_URL = "https://www.pure-gas.org/graphql";
 const BATCH_SIZE = 200;
+const SOURCE = "pure-gas.org";
 
 const STATIONS_QUERY = `
   query StationsByState($code: ID!) {
@@ -17,39 +23,70 @@ const STATIONS_QUERY = `
 
 const STATES_QUERY = `query { states { code } }`;
 
-function mapRow(raw: Record<string, unknown>) {
-  if (raw.removed) return null;
-  const loc = raw.location as { latitude?: number; longitude?: number } | undefined;
-  if (loc?.latitude == null || loc?.longitude == null) return null;
-  const state = (raw.state as { code?: string })?.code ?? "";
-  const brand = (raw.brand as { name?: string })?.name;
-  const name = raw.name as string;
-  const display =
-    brand && !name?.includes(brand) ? `${brand} — ${name}` : name;
+type ExistingRow = {
+  id: string;
+  external_id: string;
+  classification: StationClassification;
+  hours: StationHours | null;
+  submitted_by: string | null;
+};
 
-  return {
-    name: display?.trim() || "E0 Station",
-    address: ((raw.streetaddress as string) ?? "").trim() || "Unknown",
-    city: ((raw.city as string) ?? "").trim() || "Unknown",
-    state,
-    zip: null,
-    country: ["AB","BC","MB","NB","NF","NS","NT","ON","PE","QC","SK","YT"].includes(state)
-      ? "CA"
-      : "US",
-    lat: loc.latitude,
-    lng: loc.longitude,
-    classification: "car" as const,
-    fuel_type: "E0 Gasoline",
-    ethanol_percent: 0,
-    phone: (raw.phone as string)?.trim() || null,
-    hours: null,
-    is_premium: false,
-    is_sponsored: false,
-    external_id: String(raw.id),
-    source: "pure-gas.org",
-    source_url: "https://www.pure-gas.org/",
-    notes: (raw.comment as string)?.trim() || null,
-  };
+async function loadExistingByExternalId(
+  supabase: NonNullable<ReturnType<typeof createServiceClient>>,
+  externalIds: string[]
+) {
+  if (externalIds.length === 0) {
+    return new Map<string, ExistingRow & { hasVerifications: boolean }>();
+  }
+
+  const { data: existing } = await supabase
+    .from("stations")
+    .select("id, external_id, classification, hours, submitted_by")
+    .eq("source", SOURCE)
+    .in("external_id", externalIds);
+
+  if (!existing?.length) {
+    return new Map<string, ExistingRow & { hasVerifications: boolean }>();
+  }
+
+  const stationIds = existing.map((row) => row.id);
+  const { data: verifications } = await supabase
+    .from("verifications")
+    .select("station_id")
+    .in("station_id", stationIds);
+
+  const verifiedIds = new Set(
+    (verifications ?? []).map((verification) => verification.station_id)
+  );
+
+  return new Map(
+    existing.map((row) => [
+      row.external_id,
+      {
+        ...row,
+        hasVerifications: verifiedIds.has(row.id),
+      },
+    ])
+  );
+}
+
+function mergeImportRow(
+  incoming: PureGasImportRow,
+  existing?: ExistingRow & { hasVerifications: boolean }
+): PureGasImportRow | null {
+  if (!existing) return incoming;
+  if (existing.submitted_by) return null;
+
+  const merged: PureGasImportRow = { ...incoming };
+
+  if (existing.hasVerifications) {
+    merged.classification = existing.classification;
+  }
+  if (existing.hours != null) {
+    merged.hours = existing.hours;
+  }
+
+  return merged;
 }
 
 export async function runChunkedPureGasImport(stateCodes?: string[]) {
@@ -75,6 +112,7 @@ export async function runChunkedPureGasImport(stateCodes?: string[]) {
 
   let upserted = 0;
   let processed = 0;
+  let preserved = 0;
 
   try {
     for (const code of codes) {
@@ -88,11 +126,38 @@ export async function runChunkedPureGasImport(stateCodes?: string[]) {
       });
       const json = await res.json();
       const rows = (json.data?.stationsByState ?? [])
-        .map((r: Record<string, unknown>) => mapRow(r))
-        .filter(Boolean);
+        .map((raw: Record<string, unknown>) => mapPureGasRow(raw))
+        .filter(Boolean) as PureGasImportRow[];
 
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-        const batch = rows.slice(i, i + BATCH_SIZE);
+        const slice = rows.slice(i, i + BATCH_SIZE);
+        const existingById = await loadExistingByExternalId(
+          supabase,
+          slice.map((row) => row.external_id)
+        );
+
+        const batch = slice
+          .map((row) => {
+            const existing = existingById.get(row.external_id);
+            if (!existing) return row;
+
+            const merged = mergeImportRow(row, existing);
+            if (!merged) return null;
+
+            if (
+              existing.hasVerifications &&
+              merged.classification !== row.classification
+            ) {
+              preserved++;
+            }
+            if (existing.hours != null) preserved++;
+
+            return merged;
+          })
+          .filter(Boolean) as PureGasImportRow[];
+
+        if (batch.length === 0) continue;
+
         const { error } = await supabase
           .from("stations")
           .upsert(batch, { onConflict: "source,external_id" });
@@ -111,7 +176,7 @@ export async function runChunkedPureGasImport(stateCodes?: string[]) {
       })
       .eq("id", run!.id);
 
-    return { upserted, states_processed: processed };
+    return { upserted, preserved, states_processed: processed };
   } catch (error) {
     await supabase
       .from("import_runs")
