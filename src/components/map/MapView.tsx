@@ -12,7 +12,14 @@ import { STATION_COLORS } from "@/lib/map/colors";
 
 const LeafletMapView = dynamic(
   () => import("./LeafletMapView").then((m) => m.LeafletMapView),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-sm text-zinc-500">
+        Loading map…
+      </div>
+    ),
+  }
 );
 
 interface MapViewProps {
@@ -63,6 +70,7 @@ export function MapView({
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
   const suppressMoveEndRef = useRef(false);
+  const pendingFitRef = useRef(false);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   const geojson = useMemo(() => stationsToGeoJson(stations), [stations]);
@@ -81,8 +89,12 @@ export function MapView({
 
   const fitMapToStations = useCallback(() => {
     const map = mapRef.current?.getMap();
-    if (!map || stations.length === 0) return;
+    if (!map || stations.length === 0) {
+      pendingFitRef.current = true;
+      return;
+    }
 
+    pendingFitRef.current = false;
     const bounds = boundsFromPoints(stations);
     if (!bounds) return;
 
@@ -99,11 +111,17 @@ export function MapView({
     }, 1200);
   }, [stations]);
 
+  const handleMapLoad = useCallback(() => {
+    if (pendingFitRef.current || fitToStations) {
+      fitMapToStations();
+    }
+  }, [fitToStations, fitMapToStations]);
+
   useEffect(() => {
     if (fitToStations) {
       fitMapToStations();
     }
-  }, [fitToStations, fitMapToStations]);
+  }, [fitToStations, fitMapToStations, stations]);
 
   useEffect(() => {
     const map = mapRef.current?.getMap();
@@ -191,6 +209,7 @@ export function MapView({
         "station-unclustered",
       ]}
       onClick={handleMapClick}
+      onLoad={handleMapLoad}
       style={{ width: "100%", height: "100%" }}
       mapStyle="mapbox://styles/mapbox/streets-v12"
       attributionControl={false}

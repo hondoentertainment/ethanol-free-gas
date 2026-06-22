@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -45,6 +45,8 @@ export function LeafletMapView({
   const onMoveEndRef = useRef(onMoveEnd);
   const onViewportChangeRef = useRef(onViewportChange);
   const suppressMoveEndRef = useRef(false);
+  const pendingFitRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     onMoveEndRef.current = onMoveEnd;
@@ -94,8 +96,14 @@ export function LeafletMapView({
 
     mapRef.current = map;
     clusterRef.current = cluster;
+    setMapReady(true);
+
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
 
     return () => {
+      setMapReady(false);
       map.remove();
       mapRef.current = null;
       clusterRef.current = null;
@@ -152,7 +160,10 @@ export function LeafletMapView({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady) {
+      pendingFitRef.current = Boolean(fitToStations && stations.length > 0);
+      return;
+    }
 
     const runProgrammaticMove = (action: () => void) => {
       suppressMoveEndRef.current = true;
@@ -163,6 +174,7 @@ export function LeafletMapView({
     };
 
     if (flyTo) {
+      pendingFitRef.current = false;
       runProgrammaticMove(() =>
         map.flyTo([flyTo.lat, flyTo.lng], 12, { duration: 0.8 })
       );
@@ -170,6 +182,7 @@ export function LeafletMapView({
     }
 
     if (fitToStations && stations.length > 0) {
+      pendingFitRef.current = false;
       const bounds = boundsFromPoints(
         stations.map((s) => ({ lat: s.lat, lng: s.lng }))
       );
@@ -185,7 +198,7 @@ export function LeafletMapView({
         );
       }
     }
-  }, [flyTo, fitToStations, stations]);
+  }, [flyTo, fitToStations, stations, mapReady]);
 
   return (
     <div className="relative h-full w-full">

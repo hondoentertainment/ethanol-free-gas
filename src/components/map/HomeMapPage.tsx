@@ -129,28 +129,32 @@ export function HomeMapPage() {
   const [hideInactive, setHideInactive] = useState(true);
   const [listOpen, setListOpen] = useState(false);
   const [showAllMap, setShowAllMap] = useState(false);
-  const [fitMap, setFitMap] = useState(true);
+  const [fitMap, setFitMap] = useState(() => !getCachedMapViewport());
   const [routeEndpoints, setRouteEndpoints] = useState<RouteEndpoints | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [routeSaved, setRouteSaved] = useState(false);
-  const [cachedViewport, setCachedViewport] = useState<MapViewport | null>(null);
+  const [cachedViewport] = useState<MapViewport | null>(() =>
+    getCachedMapViewport()
+  );
   const mapMoveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRegionalCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   // Monotonic token so the most recent load always wins (e.g. the initial
   // nationwide load vs. the regional load fired once geolocation resolves).
   const loadSeqRef = useRef(0);
+  const initialLoadDoneRef = useRef(false);
+  const showAllMapRef = useRef(showAllMap);
   const REGIONAL_RELOAD_MILES = 35;
 
   useEffect(() => {
-    setCachedViewport(getCachedMapViewport());
-  }, []);
+    showAllMapRef.current = showAllMap;
+  }, [showAllMap]);
 
   const handleViewportChange = useCallback((view: MapViewport) => {
     cacheMapViewport(view);
   }, []);
 
   const mapInitialView =
-    !fitMap && !flyTo && !routeMode && cachedViewport
+    !flyTo && !routeMode && cachedViewport
       ? {
           latitude: cachedViewport.lat,
           longitude: cachedViewport.lng,
@@ -282,7 +286,7 @@ export function HomeMapPage() {
 
   useEffect(() => {
     if (!fitMap) return;
-    const timer = window.setTimeout(() => setFitMap(false), 1000);
+    const timer = window.setTimeout(() => setFitMap(false), 2500);
     return () => window.clearTimeout(timer);
   }, [fitMap]);
 
@@ -349,6 +353,8 @@ export function HomeMapPage() {
 
   useEffect(() => {
     if (parseRouteParams(searchParams)) return;
+    if (initialLoadDoneRef.current) return;
+    initialLoadDoneRef.current = true;
 
     // Instant first paint: show the last cached stations immediately (real
     // data, no spinner) while a fresh fetch happens in the background.
@@ -361,11 +367,11 @@ export function HomeMapPage() {
       setLoading(false);
     }
 
-    // Load pins right away instead of waiting for the geolocation prompt — this
-    // is what kept the map sparse/blank until the user answered the permission
-    // dialog. With a cached center we refresh that region; otherwise we load the
-    // (edge-cached) nationwide set so the map is populated immediately.
-    loadStations(cached?.center ?? undefined, { fit: !hasCached });
+    // Always load the nationwide set first so pins appear at every zoom level
+    // without waiting on geolocation or a stale regional cache center.
+    loadStations(undefined, {
+      fit: !hasCached && !cachedViewport,
+    });
 
     // Refine to the user's location in parallel. Fired after the initial load,
     // so its sequence token is newer and its results win the race.
@@ -378,13 +384,15 @@ export function HomeMapPage() {
           };
           setUserLocation(loc);
           lastRegionalCenterRef.current = loc;
-          loadStations(loc, { fit: true });
+          if (!showAllMapRef.current) {
+            loadStations(loc, { fit: true });
+          }
         },
         () => {},
         { timeout: 8000, maximumAge: 120000 }
       );
     }
-  }, [loadStations]);
+  }, [cachedViewport, loadStations, searchParams]);
 
   function handleUseLocation() {
     if (!navigator.geolocation) {
