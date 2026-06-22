@@ -17,7 +17,7 @@ import { VerifyStationNudge } from "@/components/map/VerifyStationNudge";
 import { useProfile } from "@/hooks/useProfile";
 import { ALL_DEMO_STATIONS } from "@/lib/data/seed-stations";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { cacheStations, getCachedStations } from "@/lib/offline/station-cache";
+import { cacheStations, getCachedStations, isNationwideCache } from "@/lib/offline/station-cache";
 import {
   cacheMapViewport,
   getCachedMapViewport,
@@ -128,7 +128,7 @@ export function HomeMapPage() {
   const [nearbyOnly, setNearbyOnly] = useState(false);
   const [hideInactive, setHideInactive] = useState(true);
   const [listOpen, setListOpen] = useState(false);
-  const [showAllMap, setShowAllMap] = useState(false);
+  const [showAllMap, setShowAllMap] = useState(true);
   const [fitMap, setFitMap] = useState(() => !getCachedMapViewport());
   const [routeEndpoints, setRouteEndpoints] = useState<RouteEndpoints | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
@@ -142,12 +142,7 @@ export function HomeMapPage() {
   // nationwide load vs. the regional load fired once geolocation resolves).
   const loadSeqRef = useRef(0);
   const initialLoadDoneRef = useRef(false);
-  const showAllMapRef = useRef(showAllMap);
   const REGIONAL_RELOAD_MILES = 35;
-
-  useEffect(() => {
-    showAllMapRef.current = showAllMap;
-  }, [showAllMap]);
 
   const handleViewportChange = useCallback((view: MapViewport) => {
     cacheMapViewport(view);
@@ -251,9 +246,12 @@ export function HomeMapPage() {
         cacheStations({
           stations: results,
           cachedAt: Date.now(),
-          center: location,
+          nationwide: loadAll,
+          center: loadAll ? undefined : location,
         });
-        if (location && !loadAll) {
+        if (loadAll) {
+          setShowAllMap(true);
+        } else if (location && !loadAll) {
           lastRegionalCenterRef.current = location;
         }
       } else {
@@ -359,22 +357,22 @@ export function HomeMapPage() {
     // Instant first paint: show the last cached stations immediately (real
     // data, no spinner) while a fresh fetch happens in the background.
     const cached = getCachedStations();
-    const hasCached = Boolean(cached?.stations?.length);
+    const hasCached = isNationwideCache(cached);
     if (hasCached) {
-      setAllStations(cached!.stations as StationWithMeta[]);
+      setAllStations(cached.stations as StationWithMeta[]);
       setDataSource(isSupabaseConfigured() ? "supabase" : "pure-gas");
-      if (cached!.center) lastRegionalCenterRef.current = cached!.center;
+      setShowAllMap(true);
       setLoading(false);
     }
 
-    // Always load the nationwide set first so pins appear at every zoom level
-    // without waiting on geolocation or a stale regional cache center.
+    // Always load the full nationwide set so every pin is available at any zoom.
     loadStations(undefined, {
+      all: true,
       fit: !hasCached && !cachedViewport,
     });
 
-    // Refine to the user's location in parallel. Fired after the initial load,
-    // so its sequence token is newer and its results win the race.
+    // Locate the user for distance sorting and the blue dot — do not replace the
+    // nationwide dataset with a small regional fetch.
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -383,10 +381,6 @@ export function HomeMapPage() {
             lng: position.coords.longitude,
           };
           setUserLocation(loc);
-          lastRegionalCenterRef.current = loc;
-          if (!showAllMapRef.current) {
-            loadStations(loc, { fit: true });
-          }
         },
         () => {},
         { timeout: 8000, maximumAge: 120000 }
@@ -458,11 +452,8 @@ export function HomeMapPage() {
     setRouteMode(false);
     setRouteEndpoints(null);
     router.replace("/", { scroll: false });
-    if (userLocation) {
-      loadStations(userLocation, { fit: true });
-    } else {
-      loadStations(undefined, { fit: true });
-    }
+    setShowAllMap(true);
+    loadStations(undefined, { all: true, fit: true });
   }
 
   function clearFilters() {
@@ -522,7 +513,7 @@ export function HomeMapPage() {
   function loadAllNationwide() {
     setShowAllMap(true);
     lastRegionalCenterRef.current = null;
-    loadStations(userLocation ?? undefined, { all: true, fit: true });
+    loadStations(undefined, { all: true, fit: true });
   }
 
   const listTitle = routeMode
@@ -749,7 +740,7 @@ export function HomeMapPage() {
       <StationBottomSheet
         station={selectedStation}
         onClose={() => setSelectedStation(null)}
-        onVerified={() => loadStations(userLocation ?? undefined, { fit: false })}
+        onVerified={() => loadStations(undefined, { all: true, fit: false })}
       />
     </div>
   );
