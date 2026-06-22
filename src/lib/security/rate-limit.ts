@@ -62,8 +62,16 @@ export async function enforceRateLimit(
   if (!limiter) return null;
 
   const id = options.identifier ?? clientId(request);
-  const { success, limit, remaining, reset } = await limiter.limit(id);
 
+  let result;
+  try {
+    result = await limiter.limit(id);
+  } catch {
+    // Fail open: never let a Redis/transport error take down the endpoint.
+    return null;
+  }
+
+  const { success, limit, remaining, reset } = result;
   if (success) return null;
 
   const retryAfter = Math.max(0, Math.ceil((reset - Date.now()) / 1000));
